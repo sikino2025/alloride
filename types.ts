@@ -5,13 +5,18 @@ export enum RideType {
 
 export type UserRole = 'driver' | 'passenger' | 'admin';
 
+export type DriverStatus = 'new' | 'pending' | 'approved' | 'rejected';
+
 export interface User {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
+  phone: string; // Added phone number
   role: UserRole;
-  avatar: string; // Now mandatory on signup
+  avatar: string; 
   isVerified: boolean; 
+  driverStatus?: DriverStatus; // Track approval status
   documentsUploaded: {
     license: boolean;
     insurance: boolean;
