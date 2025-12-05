@@ -1,0 +1,9 @@
+{
+  "name": "alloride express",
+  "description": "A 2025-ready rideshare super-app combining city-to-city carpooling with urban mobility features, AI dispatch, and advanced safety.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
