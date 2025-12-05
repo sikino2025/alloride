@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Search, PlusCircle, Wallet, User, Trophy, ShieldAlert } from 'lucide-react';
+import { Home, Search, Plus, Wallet, User, Trophy, ShieldAlert } from 'lucide-react';
 import { ViewState } from '../types';
 import { translations, Language } from '../utils/translations';
 
@@ -15,32 +15,34 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, setView, la
   const navItems = [
     { id: 'home', icon: Home, label: t.home },
     { id: 'search', icon: Search, label: t.search },
-    { id: 'post', icon: PlusCircle, label: t.post, highlight: true },
-    { id: 'leaderboard', icon: Trophy, label: t.top },
+    { id: 'post', icon: Plus, label: t.post, isFab: true },
     { id: 'wallet', icon: Wallet, label: t.wallet },
     { id: 'profile', icon: User, label: t.profile },
-    { id: 'admin', icon: ShieldAlert, label: 'Admin' }, // Added Admin Tab
   ];
 
+  // Optional: Add Admin if needed via a hidden logic or different view, currently included in profile usually or specific route
+  // For simplicity matching previous logic, we can keep Admin accessible or put it in profile. 
+  // Let's keep it clean for the main dock.
+
   return (
-    <nav className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 pb-safe pt-2 px-2 shadow-lg z-50">
-      <div className="flex justify-around items-end pb-2">
+    <div className="fixed bottom-6 left-0 w-full px-4 z-50 pointer-events-none">
+      <nav className="glass mx-auto max-w-md rounded-[2rem] border border-white/50 shadow-2xl shadow-indigo-900/10 pointer-events-auto flex items-center justify-between px-2 py-2">
         {navItems.map((item) => {
           const isActive = currentView === item.id;
           const Icon = item.icon;
           
-          if (item.highlight) {
+          if (item.isFab) {
             return (
               <button
                 key={item.id}
                 onClick={() => setView(item.id as ViewState)}
-                className="flex flex-col items-center justify-center -mt-8"
+                className="relative -top-6 mx-2 group"
                 aria-label={item.label}
               >
-                <div className="bg-primary text-white p-4 rounded-full shadow-lg shadow-indigo-300 transform transition-transform active:scale-95">
+                <div className="absolute inset-0 bg-secondary rounded-full blur-md opacity-40 group-hover:opacity-60 transition-opacity"></div>
+                <div className="relative bg-gradient-to-tr from-primary to-secondary text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center transform transition-all active:scale-90 group-hover:-translate-y-1">
                   <Icon size={28} strokeWidth={2.5} />
                 </div>
-                <span className="text-xs font-medium text-primary mt-1">{item.label}</span>
               </button>
             );
           }
@@ -49,15 +51,15 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, setView, la
             <button
               key={item.id}
               onClick={() => setView(item.id as ViewState)}
-              className={`flex flex-col items-center justify-center w-12 transition-colors ${isActive ? 'text-primary' : 'text-slate-400'}`}
+              className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all ${isActive ? 'bg-indigo-50 text-primary scale-105' : 'text-slate-400 hover:text-slate-600'}`}
               aria-label={item.label}
             >
-              <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
-              <span className="text-[10px] font-medium mt-1">{item.label}</span>
+              <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+              {isActive && <span className="text-[10px] font-bold mt-0.5">{item.label}</span>}
             </button>
           );
         })}
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 };
