@@ -60,7 +60,7 @@ const generateMockRides = (): Ride[] => {
   return rides.sort((a, b) => a.departureTime.getTime() - b.departureTime.getTime());
 };
 
-// --- Updated Components for Modern Layout ---
+// --- Components ---
 
 const Button = ({ children, onClick, variant = 'primary', className = '', fullWidth = true, disabled = false, type = "button" }: any) => {
   const baseStyle = "py-4 px-6 rounded-2xl font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:pointer-events-none shadow-lg";
@@ -166,7 +166,7 @@ const AuthView = ({ onLogin }: { onLogin: (user: UserType) => void }) => {
       ...MOCK_USER_TEMPLATE,
       id: `u-${Date.now()}`,
       firstName: firstName || "New", lastName: lastName || "User", email, phone, role,
-      avatar: '', // Set explicitly to empty for new signups
+      avatar: '', 
       isVerified: false, driverStatus: role === 'driver' ? 'new' : undefined,
       documentsUploaded: { license: false, insurance: false, photo: false }, totalRides: 0, rating: 5.0
     };
@@ -175,7 +175,6 @@ const AuthView = ({ onLogin }: { onLogin: (user: UserType) => void }) => {
 
   return (
     <div className="h-full flex flex-col items-center justify-center p-6 bg-slate-50 relative overflow-hidden">
-      {/* Background Blobs */}
       <div className="absolute top-[-20%] left-[-20%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-3xl"></div>
       <div className="absolute bottom-[-20%] right-[-20%] w-[500px] h-[500px] bg-secondary/10 rounded-full blur-3xl"></div>
 
@@ -253,7 +252,6 @@ const HomeView = ({ setView, setDetailRide, lang, setLang, user, allRides }: { s
   const dateInputRef = useRef<HTMLInputElement>(null);
   const t = translations[lang];
 
-  // Logic to show "My Rides" or "Featured"
   const myRides = useMemo(() => {
      if (user.role === 'driver') {
         return allRides.filter(r => r.driver.id === user.id);
@@ -275,9 +273,7 @@ const HomeView = ({ setView, setDetailRide, lang, setLang, user, allRides }: { s
        const matchSeats = ride.seatsAvailable >= passengers;
        const rideDateStr = toLocalISOString(ride.departureTime);
        const matchDate = !date || rideDateStr === date;
-       const matchInstant = filters.instant ? ride.features.instantBook : true;
-       const matchTires = filters.winterTires ? ride.features.winterTires : true;
-       return matchOrigin && matchDest && matchSeats && matchDate && matchInstant && matchTires;
+       return matchOrigin && matchDest && matchSeats && matchDate;
     });
     if (filters.bestPrice) results.sort((a, b) => a.price - b.price);
     else results.sort((a, b) => a.departureTime.getTime() - b.departureTime.getTime());
@@ -286,111 +282,48 @@ const HomeView = ({ setView, setDetailRide, lang, setLang, user, allRides }: { s
 
   return (
     <div className="pb-32 min-h-full bg-slate-50">
-      {/* Hero Section */}
       <div className="bg-slate-900 pb-20 pt-12 px-6 rounded-b-[3rem] relative overflow-hidden shadow-2xl">
          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/30 rounded-full blur-[80px] -mr-16 -mt-16"></div>
          <div className="absolute bottom-0 left-0 w-64 h-64 bg-secondary/20 rounded-full blur-[80px] -ml-16 -mb-16"></div>
-         
          <div className="relative z-10 flex justify-between items-start mb-8">
             <div className="flex items-center gap-3 text-white">
-               <div className="bg-white/10 p-2 rounded-xl backdrop-blur-md">
-                 <Logo size={24} />
-               </div>
-               <div>
-                  <h1 className="text-xl font-bold">{t.goodMorning}, {user.firstName}</h1>
-                  <p className="text-white/60 text-xs font-medium">{t.whereTo}</p>
-               </div>
+               <div className="bg-white/10 p-2 rounded-xl backdrop-blur-md"><Logo size={24} /></div>
+               <div><h1 className="text-xl font-bold">{t.goodMorning}, {user.firstName}</h1><p className="text-white/60 text-xs font-medium">{t.whereTo}</p></div>
             </div>
             <div onClick={() => setView('profile')} className="cursor-pointer">
-              {user.avatar ? (
-                <img src={user.avatar} className="w-10 h-10 rounded-full border-2 border-white/20 shadow-lg object-cover" alt="profile" />
-              ) : (
-                <div className="w-10 h-10 rounded-full border-2 border-white/20 shadow-lg bg-white/10 backdrop-blur-md flex items-center justify-center text-white font-bold text-sm">
-                  {user.firstName[0]}{user.lastName[0]}
-                </div>
-              )}
+              {user.avatar ? <img src={user.avatar} className="w-10 h-10 rounded-full border-2 border-white/20 shadow-lg object-cover" alt="profile" /> : <div className="w-10 h-10 rounded-full border-2 border-white/20 shadow-lg bg-white/10 backdrop-blur-md flex items-center justify-center text-white font-bold text-sm">{user.firstName[0]}{user.lastName[0]}</div>}
             </div>
          </div>
       </div>
-
-      {/* Floating Search Island */}
       <div className="px-6 -mt-16 relative z-20">
          <div className="bg-white rounded-[2rem] p-4 shadow-card border border-white/50">
             <div className="bg-slate-50 rounded-2xl p-1 space-y-1 mb-3">
                <div className="flex items-center px-4 py-3 bg-white rounded-xl shadow-sm border border-slate-100">
-                  <div className="w-2 h-2 rounded-full bg-slate-900 mr-3"></div>
-                  <input type="text" value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder={t.leavingFrom} className="flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none placeholder:text-slate-300" />
+                  <div className="w-2 h-2 rounded-full bg-slate-900 mr-3"></div><input type="text" value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder={t.leavingFrom} className="flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none placeholder:text-slate-300" />
                </div>
                <div className="flex items-center px-4 py-3 bg-white rounded-xl shadow-sm border border-slate-100">
-                  <div className="w-2 h-2 rounded-full bg-secondary mr-3"></div>
-                  <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} placeholder={t.goingTo} className="flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none placeholder:text-slate-300" />
+                  <div className="w-2 h-2 rounded-full bg-secondary mr-3"></div><input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} placeholder={t.goingTo} className="flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none placeholder:text-slate-300" />
                </div>
             </div>
-            
             <div className="flex gap-2 mb-3">
-               <div onClick={() => dateInputRef.current?.showPicker ? dateInputRef.current.showPicker() : dateInputRef.current?.focus()} className="flex-1 bg-slate-50 rounded-xl px-4 py-3 flex items-center gap-2 cursor-pointer hover:bg-slate-100 transition-colors">
-                  <Calendar size={18} className="text-slate-400" />
-                  <span className="text-sm font-bold text-slate-700">{getDisplayDate(date, t)}</span>
-                  <input ref={dateInputRef} type="date" value={date} min={toLocalISOString(new Date())} onChange={(e) => setDate(e.target.value)} className="hidden" />
-               </div>
-               <div onClick={() => setPassengers(prev => prev < 4 ? prev + 1 : 1)} className="w-20 bg-slate-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-100 transition-colors">
-                  <User size={18} className="text-slate-400" />
-                  <span className="text-sm font-bold text-slate-700">{passengers}</span>
-               </div>
+               <div onClick={() => dateInputRef.current?.showPicker ? dateInputRef.current.showPicker() : dateInputRef.current?.focus()} className="flex-1 bg-slate-50 rounded-xl px-4 py-3 flex items-center gap-2 cursor-pointer hover:bg-slate-100 transition-colors"><Calendar size={18} className="text-slate-400" /><span className="text-sm font-bold text-slate-700">{getDisplayDate(date, t)}</span><input ref={dateInputRef} type="date" value={date} min={toLocalISOString(new Date())} onChange={(e) => setDate(e.target.value)} className="hidden" /></div>
+               <div onClick={() => setPassengers(prev => prev < 4 ? prev + 1 : 1)} className="w-20 bg-slate-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-100 transition-colors"><User size={18} className="text-slate-400" /><span className="text-sm font-bold text-slate-700">{passengers}</span></div>
             </div>
             <Button onClick={applySearch} className="w-full shadow-xl shadow-indigo-500/20">{t.searchRides}</Button>
          </div>
       </div>
-
-      {/* Driver's My Rides */}
       {!hasSearched && user.role === 'driver' && myRides.length > 0 && (
-         <div className="px-6 mt-8">
-            <Header title="Your Trips" subtitle="Upcoming drives" />
+         <div className="px-6 mt-8"><Header title="Your Trips" subtitle="Upcoming drives" />
             <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4">
                {myRides.map(ride => (
-                  <div key={ride.id} className="min-w-[280px] bg-slate-900 rounded-3xl p-5 text-white relative overflow-hidden">
-                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-2xl -mr-10 -mt-10"></div>
-                     <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-4">
-                           <span className="bg-white/10 px-3 py-1 rounded-full text-[10px] font-bold">LIVE</span>
-                           <span className="text-2xl font-bold">${ride.price}</span>
-                        </div>
-                        <div className="space-y-1 mb-4">
-                           <div className="font-bold text-lg">{ride.origin.split(',')[0]}</div>
-                           <div className="w-0.5 h-4 bg-white/20 ml-1"></div>
-                           <div className="font-bold text-lg text-secondary">{ride.destination.split(',')[0]}</div>
-                        </div>
-                        <div className="flex items-center gap-2 text-white/50 text-xs font-medium">
-                           <Clock size={12}/> {new Date(ride.departureTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-                           <span>•</span>
-                           <User size={12}/> {ride.seatsAvailable} seats left
-                        </div>
-                     </div>
-                  </div>
+                  <div key={ride.id} className="min-w-[280px] bg-slate-900 rounded-3xl p-5 text-white relative overflow-hidden"><div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-2xl -mr-10 -mt-10"></div><div className="relative z-10"><div className="flex justify-between items-start mb-4"><span className="bg-white/10 px-3 py-1 rounded-full text-[10px] font-bold">LIVE</span><span className="text-2xl font-bold">${ride.price}</span></div><div className="space-y-1 mb-4"><div className="font-bold text-lg">{ride.origin.split(',')[0]}</div><div className="w-0.5 h-4 bg-white/20 ml-1"></div><div className="font-bold text-lg text-secondary">{ride.destination.split(',')[0]}</div></div><div className="flex items-center gap-2 text-white/50 text-xs font-medium"><Clock size={12}/> {new Date(ride.departureTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}<span>•</span><User size={12}/> {ride.seatsAvailable} seats left</div></div></div>
                ))}
             </div>
          </div>
       )}
-
-      {/* Results / Featured */}
       <div className="px-6 mt-8">
-         <Header 
-            title={hasSearched ? t.searchResults : t.featuredRides} 
-            subtitle={hasSearched ? `${filteredRides.length} rides available` : "Curated for you"} 
-            rightAction={!hasSearched && <span className="text-primary font-bold text-sm">View All</span>}
-         />
-         
-         {displayRides.length > 0 ? (
-           displayRides.map(ride => (
-             <RideCard key={ride.id} ride={ride} onClick={() => { setDetailRide(ride); setView('ride-detail'); }} t={t} />
-           ))
-         ) : (
-           <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200">
-             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300"><Search size={24}/></div>
-             <p className="text-slate-500 font-medium px-6">{t.noRidesFound}</p>
-             <button onClick={() => {setOrigin(''); setDestination(''); setHasSearched(false);}} className="mt-4 text-primary text-sm font-bold">Clear Search</button>
-           </div>
-         )}
+         <Header title={hasSearched ? t.searchResults : t.featuredRides} subtitle={hasSearched ? `${filteredRides.length} rides available` : "Curated for you"} rightAction={!hasSearched && <span className="text-primary font-bold text-sm">View All</span>} />
+         {displayRides.length > 0 ? (displayRides.map(ride => (<RideCard key={ride.id} ride={ride} onClick={() => { setDetailRide(ride); setView('ride-detail'); }} t={t} />))) : (<div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200"><div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300"><Search size={24}/></div><p className="text-slate-500 font-medium px-6">{t.noRidesFound}</p><button onClick={() => {setOrigin(''); setDestination(''); setHasSearched(false);}} className="mt-4 text-primary text-sm font-bold">Clear Search</button></div>)}
       </div>
     </div>
   );
@@ -399,17 +332,13 @@ const HomeView = ({ setView, setDetailRide, lang, setLang, user, allRides }: { s
 const PostRideView = ({ setView, lang, user, updateUser, onPublish }: { setView: any, lang: Language, user: UserType, updateUser: (u: UserType) => void, onPublish: (ride: Ride) => void }) => {
   const t = translations[lang];
   const needsOnboarding = user.role === 'driver' && (!user.isVerified || user.driverStatus !== 'approved');
-  
   const [onboardingStep, setOnboardingStep] = useState(1);
   const [vehicle, setVehicle] = useState({ make: '', model: '', year: '', color: '', plate: '' });
   const [uploadedDocs, setUploadedDocs] = useState<{ [key: string]: boolean }>({ license: false, insurance: false, photo: false });
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
-  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [currentUploadType, setCurrentUploadType] = useState<string | null>(null);
-
-  // Post Ride Form
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [date, setDate] = useState(() => toLocalISOString(new Date()));
@@ -420,7 +349,6 @@ const PostRideView = ({ setView, lang, user, updateUser, onPublish }: { setView:
   const [luggage, setLuggage] = useState({ small: 2, medium: 1, large: 0 });
   const [loadingAI, setLoadingAI] = useState(false);
 
-  // Onboarding Logic (Re-implemented from previous turn)
   const handleVehicleSubmit = (e: React.FormEvent) => { e.preventDefault(); setOnboardingStep(2); };
   const triggerUpload = (type: string) => { setCurrentUploadType(type); fileInputRef.current?.click(); };
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -438,25 +366,16 @@ const PostRideView = ({ setView, lang, user, updateUser, onPublish }: { setView:
     updateUser({ ...user, isVerified: false, driverStatus: 'pending', avatar: profilePhoto || user.avatar, vehicle, documentsUploaded: { ...user.documentsUploaded, license: true, insurance: true, photo: true } });
     alert("Submitted for approval.");
   };
-
   const handlePublish = () => {
      const departure = new Date(`${date}T${time || '08:00'}`);
      onPublish({ id: `ride-${Date.now()}`, driver: user, origin, destination, stops: [], departureTime: departure, arrivalTime: new Date(departure.getTime() + 10800000), price, currency: 'CAD', seatsAvailable: seats, luggage, features: { instantBook: true, wifi: true, music: true, pets: false, smoking: false, winterTires: true }, distanceKm: 300, description });
      alert("Published!"); setView('home');
   };
-  
   const handleAI = async () => { if (!origin || !destination) return; setLoadingAI(true); const text = await optimizeRideDescription(origin, destination, []); setDescription(text); setLoadingAI(false); }
 
   if (needsOnboarding) {
      if (user.driverStatus === 'pending') {
-        return (
-           <div className="h-full flex flex-col items-center justify-center p-8 bg-slate-50">
-              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-glow text-amber-500 animate-pulse"><Clock size={48} /></div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">Review in Progress</h2>
-              <p className="text-center text-slate-500 mb-8 max-w-xs">We are verifying your documents. You'll be ready to drive in ~1 hour.</p>
-              <Button variant="outline" onClick={() => setView('home')}>Back to Home</Button>
-           </div>
-        );
+        return (<div className="h-full flex flex-col items-center justify-center p-8 bg-slate-50"><div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-glow text-amber-500 animate-pulse"><Clock size={48} /></div><h2 className="text-2xl font-bold text-slate-900 mb-2">Review in Progress</h2><p className="text-center text-slate-500 mb-8 max-w-xs">We are verifying your documents.</p><Button variant="outline" onClick={() => setView('home')}>Back to Home</Button></div>);
      }
      return (
         <div className="h-full bg-slate-50 pb-32 overflow-y-auto px-6 pt-12">
@@ -464,88 +383,16 @@ const PostRideView = ({ setView, lang, user, updateUser, onPublish }: { setView:
            <div className="flex gap-2 mb-8">
               {[1, 2, 3].map(step => (<div key={step} className={`h-1.5 flex-1 rounded-full transition-colors ${onboardingStep >= step ? 'bg-primary' : 'bg-slate-200'}`}></div>))}
            </div>
-
-           {onboardingStep === 1 && (
-              <form onSubmit={handleVehicleSubmit} className="space-y-4 bg-white p-6 rounded-[2rem] shadow-card">
-                 <h3 className="font-bold text-lg mb-4">Vehicle Details</h3>
-                 <div className="grid grid-cols-2 gap-4">
-                    <input required placeholder="Make" value={vehicle.make} onChange={e => setVehicle({...vehicle, make: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" />
-                    <input required placeholder="Model" value={vehicle.model} onChange={e => setVehicle({...vehicle, model: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" />
-                 </div>
-                 <div className="grid grid-cols-2 gap-4">
-                    <input required placeholder="Year" type="number" value={vehicle.year} onChange={e => setVehicle({...vehicle, year: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" />
-                    <input required placeholder="Color" value={vehicle.color} onChange={e => setVehicle({...vehicle, color: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" />
-                 </div>
-                 <input required placeholder="License Plate" value={vehicle.plate} onChange={e => setVehicle({...vehicle, plate: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm text-center tracking-widest uppercase border border-slate-200" />
-                 <Button type="submit" className="mt-4">Next: Profile Photo</Button>
-              </form>
-           )}
-
-           {onboardingStep === 2 && (
-              <div className="bg-white p-6 rounded-[2rem] shadow-card text-center">
-                 <h3 className="font-bold text-lg mb-6">Take a Selfie</h3>
-                 <input type="file" ref={photoInputRef} className="hidden" accept="image/*" capture="user" onChange={handlePhotoUpload} />
-                 <div onClick={() => photoInputRef.current?.click()} className="w-48 h-48 mx-auto rounded-full bg-slate-50 border-4 border-dashed border-slate-200 flex items-center justify-center cursor-pointer hover:border-primary transition-colors overflow-hidden relative">
-                    {profilePhoto ? <img src={profilePhoto} className="w-full h-full object-cover" /> : <div className="text-slate-400"><Camera size={40} className="mx-auto mb-2"/><span className="text-xs font-bold uppercase">Tap Camera</span></div>}
-                 </div>
-                 <div className="mt-8 flex gap-4">
-                    <Button variant="secondary" onClick={() => setOnboardingStep(1)}>Back</Button>
-                    <Button disabled={!profilePhoto} onClick={() => setOnboardingStep(3)}>Next: Docs</Button>
-                 </div>
-              </div>
-           )}
-
-           {onboardingStep === 3 && (
-              <div className="bg-white p-6 rounded-[2rem] shadow-card">
-                 <h3 className="font-bold text-lg mb-6">Upload Documents</h3>
-                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*,.pdf" onChange={handleFileChange} />
-                 <div className="space-y-4">
-                    {[{id: 'license', label: 'License', icon: CreditCard}, {id: 'insurance', label: 'Insurance', icon: Shield}].map((item) => (
-                       <div key={item.id} onClick={() => triggerUpload(item.id)} className={`p-4 rounded-xl flex justify-between items-center cursor-pointer border-2 transition-all ${uploadedDocs[item.id] ? 'border-green-500 bg-green-50' : 'border-slate-100 hover:border-slate-300'}`}>
-                          <div className="flex items-center gap-4">
-                             <div className={`p-2 rounded-lg ${uploadedDocs[item.id] ? 'bg-green-200 text-green-700' : 'bg-slate-100 text-slate-500'}`}><item.icon size={20}/></div>
-                             <span className="font-bold text-slate-700">{item.label}</span>
-                          </div>
-                          {uploadedDocs[item.id] && <CheckCircle2 size={20} className="text-green-500"/>}
-                       </div>
-                    ))}
-                 </div>
-                 <div className="mt-8 flex gap-4">
-                    <Button variant="secondary" onClick={() => setOnboardingStep(2)}>Back</Button>
-                    <Button disabled={!uploadedDocs.license || !uploadedDocs.insurance} onClick={submitForApproval}>Submit</Button>
-                 </div>
-              </div>
-           )}
+           {onboardingStep === 1 && (<form onSubmit={handleVehicleSubmit} className="space-y-4 bg-white p-6 rounded-[2rem] shadow-card"><h3 className="font-bold text-lg mb-4">Vehicle Details</h3><div className="grid grid-cols-2 gap-4"><input required placeholder="Make" value={vehicle.make} onChange={e => setVehicle({...vehicle, make: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" /><input required placeholder="Model" value={vehicle.model} onChange={e => setVehicle({...vehicle, model: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" /></div><div className="grid grid-cols-2 gap-4"><input required placeholder="Year" type="number" value={vehicle.year} onChange={e => setVehicle({...vehicle, year: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" /><input required placeholder="Color" value={vehicle.color} onChange={e => setVehicle({...vehicle, color: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" /></div><input required placeholder="License Plate" value={vehicle.plate} onChange={e => setVehicle({...vehicle, plate: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm text-center tracking-widest uppercase border border-slate-200" /><Button type="submit" className="mt-4">Next: Profile Photo</Button></form>)}
+           {onboardingStep === 2 && (<div className="bg-white p-6 rounded-[2rem] shadow-card text-center"><h3 className="font-bold text-lg mb-6">Take a Selfie</h3><input type="file" ref={photoInputRef} className="hidden" accept="image/*" capture="user" onChange={handlePhotoUpload} /><div onClick={() => photoInputRef.current?.click()} className="w-48 h-48 mx-auto rounded-full bg-slate-50 border-4 border-dashed border-slate-200 flex items-center justify-center cursor-pointer hover:border-primary transition-colors overflow-hidden relative">{profilePhoto ? <img src={profilePhoto} className="w-full h-full object-cover" /> : <div className="text-slate-400"><Camera size={40} className="mx-auto mb-2"/><span className="text-xs font-bold uppercase">Tap Camera</span></div>}</div><div className="mt-8 flex gap-4"><Button variant="secondary" onClick={() => setOnboardingStep(1)}>Back</Button><Button disabled={!profilePhoto} onClick={() => setOnboardingStep(3)}>Next: Docs</Button></div></div>)}
+           {onboardingStep === 3 && (<div className="bg-white p-6 rounded-[2rem] shadow-card"><h3 className="font-bold text-lg mb-6">Upload Documents</h3><input type="file" ref={fileInputRef} className="hidden" accept="image/*,.pdf" onChange={handleFileChange} /><div className="space-y-4">{[{id: 'license', label: 'License', icon: CreditCard}, {id: 'insurance', label: 'Insurance', icon: Shield}].map((item) => (<div key={item.id} onClick={() => triggerUpload(item.id)} className={`p-4 rounded-xl flex justify-between items-center cursor-pointer border-2 transition-all ${uploadedDocs[item.id] ? 'border-green-500 bg-green-50' : 'border-slate-100 hover:border-slate-300'}`}><div className="flex items-center gap-4"><div className={`p-2 rounded-lg ${uploadedDocs[item.id] ? 'bg-green-200 text-green-700' : 'bg-slate-100 text-slate-500'}`}><item.icon size={20}/></div><span className="font-bold text-slate-700">{item.label}</span></div>{uploadedDocs[item.id] && <CheckCircle2 size={20} className="text-green-500"/>}</div>))}</div><div className="mt-8 flex gap-4"><Button variant="secondary" onClick={() => setOnboardingStep(2)}>Back</Button><Button disabled={!uploadedDocs.license || !uploadedDocs.insurance} onClick={submitForApproval}>Submit</Button></div></div>)}
         </div>
      );
   }
-
   return (
     <div className="pb-32 px-6 pt-12 bg-slate-50 min-h-full">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-extrabold text-slate-900">{t.postRide}</h1>
-        <button onClick={() => setView('home')} className="p-2 bg-white rounded-full shadow-sm text-slate-400"><XCircle size={24}/></button>
-      </div>
-      <div className="space-y-4">
-         <div className="bg-white p-6 rounded-[2rem] shadow-card space-y-4">
-            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl"><div className="w-3 h-3 rounded-full bg-slate-900"></div><input value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder="Origin City" className="bg-transparent font-bold w-full outline-none" /></div>
-            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl"><div className="w-3 h-3 rounded-full bg-secondary"></div><input value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="Destination City" className="bg-transparent font-bold w-full outline-none" /></div>
-         </div>
-         <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white p-4 rounded-[2rem] shadow-card"><label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full font-bold bg-transparent outline-none" /></div>
-            <div className="bg-white p-4 rounded-[2rem] shadow-card"><label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Time</label><input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-full font-bold bg-transparent outline-none" /></div>
-         </div>
-         <div className="bg-white p-6 rounded-[2rem] shadow-card">
-            <div className="flex justify-between items-center mb-4"><span className="font-bold text-slate-900">Price per seat</span><input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} className="w-20 text-right font-bold text-xl bg-slate-50 rounded-lg p-2 outline-none" /></div>
-            <div className="flex justify-between items-center"><span className="font-bold text-slate-900">Available Seats</span><div className="flex items-center gap-4"><button onClick={() => setSeats(Math.max(1, seats-1))} className="w-8 h-8 rounded-full bg-slate-100 font-bold">-</button><span className="font-bold text-xl">{seats}</span><button onClick={() => setSeats(Math.min(7, seats+1))} className="w-8 h-8 rounded-full bg-slate-100 font-bold">+</button></div></div>
-         </div>
-         <div className="bg-white p-6 rounded-[2rem] shadow-card relative">
-            <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Description</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full h-24 bg-slate-50 rounded-xl p-4 font-medium outline-none resize-none" placeholder="Add details..." />
-            <button onClick={handleAI} disabled={loadingAI || !origin} className="absolute bottom-6 right-6 bg-white shadow-md px-3 py-1.5 rounded-lg text-xs font-bold text-primary flex items-center gap-1 border border-slate-100"><Zap size={12} fill="currentColor"/> {loadingAI ? 'Thinking...' : 'AI Write'}</button>
-         </div>
-         <Button onClick={handlePublish} className="w-full shadow-2xl shadow-indigo-500/30">Publish Ride</Button>
-      </div>
+      <div className="flex justify-between items-center mb-6"><h1 className="text-2xl font-extrabold text-slate-900">{t.postRide}</h1><button onClick={() => setView('home')} className="p-2 bg-white rounded-full shadow-sm text-slate-400"><XCircle size={24}/></button></div>
+      <div className="space-y-4"><div className="bg-white p-6 rounded-[2rem] shadow-card space-y-4"><div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl"><div className="w-3 h-3 rounded-full bg-slate-900"></div><input value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder="Origin City" className="bg-transparent font-bold w-full outline-none" /></div><div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl"><div className="w-3 h-3 rounded-full bg-secondary"></div><input value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="Destination City" className="bg-transparent font-bold w-full outline-none" /></div></div><div className="grid grid-cols-2 gap-4"><div className="bg-white p-4 rounded-[2rem] shadow-card"><label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full font-bold bg-transparent outline-none" /></div><div className="bg-white p-4 rounded-[2rem] shadow-card"><label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Time</label><input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-full font-bold bg-transparent outline-none" /></div></div><div className="bg-white p-6 rounded-[2rem] shadow-card"><div className="flex justify-between items-center mb-4"><span className="font-bold text-slate-900">Price per seat</span><input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} className="w-20 text-right font-bold text-xl bg-slate-50 rounded-lg p-2 outline-none" /></div><div className="flex justify-between items-center"><span className="font-bold text-slate-900">Available Seats</span><div className="flex items-center gap-4"><button onClick={() => setSeats(Math.max(1, seats-1))} className="w-8 h-8 rounded-full bg-slate-100 font-bold">-</button><span className="font-bold text-xl">{seats}</span><button onClick={() => setSeats(Math.min(7, seats+1))} className="w-8 h-8 rounded-full bg-slate-100 font-bold">+</button></div></div></div><div className="bg-white p-6 rounded-[2rem] shadow-card relative"><label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Description</label><textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full h-24 bg-slate-50 rounded-xl p-4 font-medium outline-none resize-none" placeholder="Add details..." /><button onClick={handleAI} disabled={loadingAI || !origin} className="absolute bottom-6 right-6 bg-white shadow-md px-3 py-1.5 rounded-lg text-xs font-bold text-primary flex items-center gap-1 border border-slate-100"><Zap size={12} fill="currentColor"/> {loadingAI ? 'Thinking...' : 'AI Write'}</button></div><Button onClick={handlePublish} className="w-full shadow-2xl shadow-indigo-500/30">Publish Ride</Button></div>
     </div>
   );
 }
@@ -618,24 +465,102 @@ const RideDetailView = ({ ride, onBack, lang }: { ride: Ride, onBack: () => void
   );
 };
 
-// AdminView (Simplified for layout match)
-const AdminView = ({ setView, pendingDrivers, approveDriver, liveRoutes }: any) => {
+// AdminView
+const AdminView = ({ setView, pendingDrivers, approveDriver, rejectDriver, liveRoutes }: { setView: any, pendingDrivers: UserType[], approveDriver: (id: string) => void, rejectDriver: (id: string) => void, liveRoutes: Ride[] }) => {
    const [unlocked, setUnlocked] = useState(false);
    const [password, setPassword] = useState('');
    const [tab, setTab] = useState<'drivers' | 'routes'>('drivers');
-   const handleUnlock = () => { if (password === '1977') setUnlocked(true); else alert("Incorrect"); }
-   if (!unlocked) return (<div className="h-full flex flex-col items-center justify-center p-6 bg-slate-900 text-white"><Lock size={48} className="mb-6 opacity-50"/><h2 className="text-2xl font-bold mb-4">Admin Access</h2><input type="password" autoFocus placeholder="PIN" value={password} onChange={(e) => setPassword(e.target.value)} className="w-48 text-center text-2xl tracking-widest bg-white/10 rounded-xl py-4 mb-4 outline-none"/><Button onClick={handleUnlock}>Unlock</Button></div>);
+   const handleUnlock = () => { if (password === '1977') setUnlocked(true); else alert("Incorrect PIN"); }
+   
+   if (!unlocked) return (
+      <div className="h-full flex flex-col items-center justify-center p-6 bg-slate-900 text-white">
+         <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mb-6 backdrop-blur-md"><Lock size={40} className="opacity-80"/></div>
+         <h2 className="text-2xl font-bold mb-2">Admin Portal</h2>
+         <p className="text-white/50 mb-8 font-medium">Restricted Access</p>
+         <input type="password" autoFocus placeholder="Enter PIN" value={password} onChange={(e) => setPassword(e.target.value)} className="w-64 text-center text-3xl tracking-[0.5em] bg-transparent border-b-2 border-white/20 py-4 mb-8 outline-none font-bold placeholder:tracking-normal placeholder:text-xl placeholder:font-normal placeholder:text-white/20 focus:border-white transition-colors"/>
+         <div className="flex flex-col w-full max-w-xs gap-4">
+            <Button onClick={handleUnlock}>Unlock Dashboard</Button>
+            <button onClick={() => setView('profile')} className="text-white/40 text-sm font-bold py-2 hover:text-white transition-colors">Return to Profile</button>
+         </div>
+      </div>
+   );
 
    return (
       <div className="pb-32 px-6 pt-12 bg-slate-50 min-h-full">
-         <Header title="Admin Dashboard" rightAction={<button onClick={() => setView('profile')}><XCircle className="text-slate-400"/></button>} />
-         <div className="flex bg-white p-1 rounded-2xl shadow-card mb-6"><button onClick={() => setTab('drivers')} className={`flex-1 py-3 font-bold rounded-xl transition-all ${tab === 'drivers' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>Approvals ({pendingDrivers.length})</button><button onClick={() => setTab('routes')} className={`flex-1 py-3 font-bold rounded-xl transition-all ${tab === 'routes' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>Live Routes</button></div>
-         {tab === 'drivers' ? pendingDrivers.map((d: UserType) => (
-             <div key={d.id} className="bg-white p-5 rounded-[2rem] shadow-card mb-4 border border-slate-50">
-                <div className="flex items-center gap-4 mb-4"><div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center font-bold text-xl">{d.firstName[0]}</div><div><h3 className="font-bold text-lg">{d.firstName} {d.lastName}</h3><span className="text-xs font-bold bg-amber-100 text-amber-600 px-2 py-0.5 rounded-lg">Pending</span></div></div>
-                <div className="flex gap-2 mb-4"><Button variant="outline" className="flex-1 py-2 text-xs">Reject</Button><Button onClick={() => approveDriver(d.id)} className="flex-1 py-2 text-xs bg-green-500">Approve</Button></div>
-             </div>
-         )) : liveRoutes.map((r: Ride) => (<div key={r.id} className="bg-white p-4 rounded-2xl shadow-sm mb-2 font-bold text-sm flex justify-between"><span>{r.origin.split(',')[0]} → {r.destination.split(',')[0]}</span><span className="text-green-500">Live</span></div>))}
+         <Header title="Admin Dashboard" rightAction={<button onClick={() => setView('profile')} className="p-2 bg-white rounded-full shadow-sm text-slate-400 hover:text-slate-900 transition-colors"><XCircle size={24}/></button>} />
+         
+         <div className="flex bg-white p-1.5 rounded-2xl shadow-card mb-8 border border-slate-100">
+            <button onClick={() => setTab('drivers')} className={`flex-1 py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${tab === 'drivers' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>
+               <User size={18} /> Approvals {pendingDrivers.length > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 rounded-full h-4 flex items-center justify-center">{pendingDrivers.length}</span>}
+            </button>
+            <button onClick={() => setTab('routes')} className={`flex-1 py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${tab === 'routes' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>
+               <MapPin size={18} /> Live Routes
+            </button>
+         </div>
+
+         {tab === 'drivers' ? (
+            pendingDrivers.length === 0 ? (
+               <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300"><CheckCircle2 size={32}/></div>
+                  <p className="text-slate-400 font-bold">All caught up!</p>
+                  <p className="text-xs text-slate-400 mt-1">No pending driver applications.</p>
+               </div>
+            ) : (
+               pendingDrivers.map((d: UserType) => (
+                  <div key={d.id} className="bg-white p-6 rounded-[2rem] shadow-card mb-4 border border-slate-50 relative overflow-hidden">
+                     <div className="flex items-center gap-4 mb-6">
+                        {d.avatar ? <img src={d.avatar} className="w-14 h-14 rounded-full object-cover border-4 border-slate-50" /> : <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center font-bold text-xl text-slate-400">{d.firstName[0]}</div>}
+                        <div>
+                           <h3 className="font-bold text-xl text-slate-900">{d.firstName} {d.lastName}</h3>
+                           <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs font-bold bg-amber-100 text-amber-600 px-2.5 py-0.5 rounded-lg border border-amber-200 uppercase tracking-wide">Pending Review</span>
+                              <span className="text-xs font-bold text-slate-400">{d.vehicle?.make} {d.vehicle?.model}</span>
+                           </div>
+                        </div>
+                     </div>
+                     
+                     <div className="grid grid-cols-3 gap-2 mb-6">
+                        {[
+                           { label: 'License', done: d.documentsUploaded.license },
+                           { label: 'Insurance', done: d.documentsUploaded.insurance },
+                           { label: 'Photo', done: d.documentsUploaded.photo }
+                        ].map(doc => (
+                           <div key={doc.label} className={`p-2 rounded-xl text-center border ${doc.done ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-100'}`}>
+                              <div className={`mx-auto w-6 h-6 rounded-full flex items-center justify-center mb-1 ${doc.done ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                                 {doc.done ? <Check size={14} strokeWidth={3} /> : <XCircle size={14} />}
+                              </div>
+                              <p className={`text-[10px] font-bold uppercase ${doc.done ? 'text-green-700' : 'text-slate-400'}`}>{doc.label}</p>
+                           </div>
+                        ))}
+                     </div>
+
+                     <div className="flex gap-3">
+                        <Button variant="outline" className="flex-1 py-3 text-xs border-red-100 text-red-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600" onClick={() => rejectDriver(d.id)}>Reject</Button>
+                        <Button onClick={() => approveDriver(d.id)} className="flex-1 py-3 text-xs bg-green-500 shadow-green-500/20">Approve Driver</Button>
+                     </div>
+                  </div>
+               ))
+            )
+         ) : (
+            <div className="space-y-3">
+               {liveRoutes.length === 0 ? <p className="text-center text-slate-400 py-8">No active routes.</p> : liveRoutes.map((r: Ride) => (
+                  <div key={r.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-50 flex items-center justify-between group cursor-pointer hover:border-primary/20 transition-all">
+                     <div>
+                        <div className="flex items-center gap-2 mb-1">
+                           <span className="font-bold text-slate-900">{r.origin.split(',')[0]}</span>
+                           <ArrowRight size={14} className="text-slate-300" />
+                           <span className="font-bold text-slate-900">{r.destination.split(',')[0]}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                           <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                           {r.driver.firstName} • {r.seatsAvailable} seats
+                        </div>
+                     </div>
+                     <span className="text-lg font-bold text-slate-900">${r.price}</span>
+                  </div>
+               ))}
+            </div>
+         )}
       </div>
    );
 };
@@ -661,6 +586,10 @@ const App: React.FC = () => {
      setPendingDrivers(prev => prev.filter(d => d.id !== id));
      if (user && user.id === id) { setUser({ ...user, isVerified: true, driverStatus: 'approved' }); alert("Approved!"); } else alert("Driver Approved.");
   };
+  const rejectDriver = (id: string) => {
+     setPendingDrivers(prev => prev.filter(d => d.id !== id));
+     if (user && user.id === id) { setUser({ ...user, isVerified: false, driverStatus: 'rejected' }); alert("Application Rejected."); } else alert("Driver Rejected.");
+  };
 
   if (!user) return <AuthView onLogin={(u) => { setUser(u); setView(u.role === 'driver' ? 'post' : 'home'); }} />;
 
@@ -671,11 +600,11 @@ const App: React.FC = () => {
       case 'ride-detail': return selectedRide ? <RideDetailView ride={selectedRide} onBack={() => setView('home')} lang={lang} /> : <HomeView setView={setView} setDetailRide={setSelectedRide} lang={lang} setLang={setLang} user={user} allRides={allRides} />;
       case 'wallet': return <WalletView lang={lang} />;
       case 'leaderboard': return <LeaderboardView lang={lang} />;
-      case 'admin': return <AdminView setView={setView} pendingDrivers={pendingDrivers} approveDriver={approveDriver} liveRoutes={allRides.filter(r => r.driver.id !== user.id)} />;
+      case 'admin': return <AdminView setView={setView} pendingDrivers={pendingDrivers} approveDriver={approveDriver} rejectDriver={rejectDriver} liveRoutes={allRides.filter(r => r.driver.id !== user.id)} />;
       case 'profile': return (
         <div className="pt-20 px-6 space-y-6 pb-32">
           <Header title="Profile" rightAction={<button onClick={() => setUser(null)} className="text-red-500 font-bold text-sm">Sign Out</button>} />
-          <div className="bg-white p-6 rounded-[2rem] shadow-card text-center">
+          <div className="bg-white p-6 rounded-[2rem] shadow-card text-center relative overflow-hidden">
             {user.avatar ? (
               <img src={user.avatar} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-slate-50 object-cover" />
             ) : (
@@ -683,9 +612,22 @@ const App: React.FC = () => {
                 {user.firstName[0]}{user.lastName[0]}
               </div>
             )}
-            <h2 className="text-2xl font-bold">{user.firstName} {user.lastName}</h2>
-            <p className="text-slate-400 font-medium mb-4">{user.role}</p>
+            <h2 className="text-2xl font-bold text-slate-900">{user.firstName} {user.lastName}</h2>
+            <p className="text-slate-400 font-medium mb-4 capitalize">{user.role}</p>
             {user.isVerified && <div className="inline-flex items-center gap-2 bg-green-50 text-green-600 px-4 py-2 rounded-xl font-bold text-sm"><CheckCircle2 size={16}/> Identity Verified</div>}
+            {user.driverStatus === 'pending' && <div className="inline-flex items-center gap-2 bg-amber-50 text-amber-600 px-4 py-2 rounded-xl font-bold text-sm mt-2"><Clock size={16}/> Verification Pending</div>}
+          </div>
+          
+          <div className="bg-white p-4 rounded-[2rem] shadow-card space-y-1">
+             <button className="w-full flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-700 font-bold">
+                <span className="flex items-center gap-3"><FileText className="text-slate-400"/> Legal & Privacy</span>
+                <ArrowRight size={16} className="text-slate-300" />
+             </button>
+             <div className="h-px bg-slate-50 mx-4"></div>
+             <button onClick={() => setView('admin')} className="w-full flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-700 font-bold">
+                <span className="flex items-center gap-3"><Lock className="text-slate-400"/> Admin Portal</span>
+                <ArrowRight size={16} className="text-slate-300" />
+             </button>
           </div>
         </div>
       );
