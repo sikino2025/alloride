@@ -17,12 +17,9 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, setView, la
     { id: 'search', icon: Search, label: t.search },
     { id: 'post', icon: Plus, label: t.post, isFab: true },
     { id: 'wallet', icon: Wallet, label: t.wallet },
+    { id: 'admin', icon: ShieldAlert, label: 'Admin' },
     { id: 'profile', icon: User, label: t.profile },
   ];
-
-  // Optional: Add Admin if needed via a hidden logic or different view, currently included in profile usually or specific route
-  // For simplicity matching previous logic, we can keep Admin accessible or put it in profile. 
-  // Let's keep it clean for the main dock.
 
   return (
     <div className="fixed bottom-6 left-0 w-full px-4 z-50 pointer-events-none">

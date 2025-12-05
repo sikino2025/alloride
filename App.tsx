@@ -399,7 +399,36 @@ const PostRideView = ({ setView, lang, user, updateUser, onPublish }: { setView:
 
 const WalletView = ({ lang }: { lang: Language }) => {
    const t = translations[lang];
-   return (<div className="pb-32 px-6 pt-12 bg-slate-50 min-h-full"><Header title={t.myWallet} /><div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl mb-8 relative overflow-hidden"><div className="absolute top-0 right-0 w-48 h-48 bg-primary/40 rounded-full -mr-16 -mt-16 blur-3xl"></div><div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/30 rounded-full -ml-10 -mb-10 blur-3xl"></div><div className="relative z-10"><p className="text-white/60 font-medium mb-2 text-sm uppercase tracking-widest">{t.totalBalance}</p><h2 className="text-6xl font-bold mb-8 tracking-tighter">$1,240<span className="text-3xl text-white/40">.50</span></h2><div className="flex gap-4"><button className="flex-1 bg-white text-slate-900 py-4 rounded-2xl font-bold text-sm shadow-lg active:scale-95 transition-transform">Top Up</button><button className="flex-1 bg-white/10 backdrop-blur-md text-white py-4 rounded-2xl font-bold text-sm border border-white/10 active:scale-95 transition-transform">Withdraw</button></div></div></div><h3 className="font-bold text-slate-900 mb-4 text-lg">{t.recentActivity}</h3><div className="space-y-4">{[1,2,3,4].map(i => (<div key={i} className="flex items-center justify-between bg-white p-5 rounded-3xl shadow-card border border-slate-50"><div className="flex items-center gap-4"><div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${i % 2 === 0 ? 'bg-green-50 text-green-600' : 'bg-slate-50 text-slate-600'}`}>{i % 2 === 0 ? <DollarSign size={24} /> : <Car size={24} />}</div><div><p className="font-bold text-slate-900">{i % 2 === 0 ? 'Top Up' : 'Ride Payment'}</p><p className="text-xs text-slate-400 font-bold mt-1">10:23 AM</p></div></div><span className={`font-bold ${i % 2 === 0 ? 'text-green-600' : 'text-slate-900'}`}>{i % 2 === 0 ? '+' : '-'}$45.00</span></div>))}</div></div>)
+   return (
+      <div className="pb-32 px-6 pt-12 bg-slate-50 min-h-full">
+         <Header title={t.myWallet} />
+         <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl mb-8 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-primary/40 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/30 rounded-full -ml-10 -mb-10 blur-3xl"></div>
+            <div className="relative z-10">
+               <p className="text-white/60 font-medium mb-2 text-sm uppercase tracking-widest">{t.totalBalance}</p>
+               <h2 className="text-6xl font-bold mb-4 tracking-tighter">$1,240<span className="text-3xl text-white/40">.50</span></h2>
+            </div>
+         </div>
+         <h3 className="font-bold text-slate-900 mb-4 text-lg">{t.recentActivity}</h3>
+         <div className="space-y-4">
+            {[1,2,3,4].map(i => (
+               <div key={i} className="flex items-center justify-between bg-white p-5 rounded-3xl shadow-card border border-slate-50">
+                  <div className="flex items-center gap-4">
+                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${i % 2 === 0 ? 'bg-green-50 text-green-600' : 'bg-slate-50 text-slate-600'}`}>
+                        {i % 2 === 0 ? <DollarSign size={24} /> : <Car size={24} />}
+                     </div>
+                     <div>
+                        <p className="font-bold text-slate-900">{i % 2 === 0 ? 'Top Up' : 'Ride Payment'}</p>
+                        <p className="text-xs text-slate-400 font-bold mt-1">10:23 AM</p>
+                     </div>
+                  </div>
+                  <span className={`font-bold ${i % 2 === 0 ? 'text-green-600' : 'text-slate-900'}`}>{i % 2 === 0 ? '+' : '-'}$45.00</span>
+               </div>
+            ))}
+         </div>
+      </div>
+   );
 };
 
 const LeaderboardView = ({ lang }: { lang: Language }) => { const t = translations[lang]; return (<div className="pb-32 px-6 pt-12 bg-slate-50 min-h-full"><Header title={t.driverLeaderboard} /><div className="grid grid-cols-2 gap-4 mb-6"><div className="bg-white p-6 rounded-[2rem] shadow-card border border-slate-50"><div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center mb-4"><Star size={20} fill="currentColor" /></div><p className="text-slate-400 text-[10px] uppercase font-bold mb-1 tracking-wider">{t.ranking}</p><p className="text-4xl font-extrabold text-slate-900">#42</p></div><div className="bg-white p-6 rounded-[2rem] shadow-card border border-slate-50"><div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mb-4"><Zap size={20} fill="currentColor" /></div><p className="text-slate-400 text-[10px] uppercase font-bold mb-1 tracking-wider">{t.points}</p><p className="text-4xl font-extrabold text-slate-900">8.4k</p></div></div><LeaderboardChart /><div className="mt-8 space-y-4"><h3 className="font-bold text-slate-900 text-lg">{t.topDrivers}</h3>{[1, 2, 3].map((i) => (<div key={i} className="flex items-center justify-between bg-white p-5 rounded-3xl shadow-card border border-slate-50"><div className="flex items-center gap-4"><span className={`font-black text-xl w-8 text-center ${i === 1 ? 'text-yellow-500' : 'text-slate-300'}`}>{i}</span><img src={`https://i.pravatar.cc/150?img=${i + 10}`} className="w-12 h-12 rounded-full border-2 border-slate-50" alt="user" /><div><p className="font-bold text-slate-900">Alex Johnson</p><p className="text-xs text-slate-500 font-bold mt-1">320 rides</p></div></div><div className="text-right"><span className="font-bold text-slate-900">12k</span><span className="text-[10px] font-bold text-slate-400 block uppercase">Pts</span></div></div>))}</div></div>)};
@@ -473,21 +502,20 @@ const AdminView = ({ setView, pendingDrivers, approveDriver, rejectDriver, liveR
    const handleUnlock = () => { if (password === '1977') setUnlocked(true); else alert("Incorrect PIN"); }
    
    if (!unlocked) return (
-      <div className="h-full flex flex-col items-center justify-center p-6 bg-slate-900 text-white">
+      <div className="h-full flex flex-col items-center justify-center p-6 bg-slate-900 text-white pb-32">
          <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mb-6 backdrop-blur-md"><Lock size={40} className="opacity-80"/></div>
          <h2 className="text-2xl font-bold mb-2">Admin Portal</h2>
          <p className="text-white/50 mb-8 font-medium">Restricted Access</p>
          <input type="password" autoFocus placeholder="Enter PIN" value={password} onChange={(e) => setPassword(e.target.value)} className="w-64 text-center text-3xl tracking-[0.5em] bg-transparent border-b-2 border-white/20 py-4 mb-8 outline-none font-bold placeholder:tracking-normal placeholder:text-xl placeholder:font-normal placeholder:text-white/20 focus:border-white transition-colors"/>
          <div className="flex flex-col w-full max-w-xs gap-4">
             <Button onClick={handleUnlock}>Unlock Dashboard</Button>
-            <button onClick={() => setView('profile')} className="text-white/40 text-sm font-bold py-2 hover:text-white transition-colors">Return to Profile</button>
          </div>
       </div>
    );
 
    return (
       <div className="pb-32 px-6 pt-12 bg-slate-50 min-h-full">
-         <Header title="Admin Dashboard" rightAction={<button onClick={() => setView('profile')} className="p-2 bg-white rounded-full shadow-sm text-slate-400 hover:text-slate-900 transition-colors"><XCircle size={24}/></button>} />
+         <Header title="Admin Dashboard" />
          
          <div className="flex bg-white p-1.5 rounded-2xl shadow-card mb-8 border border-slate-100">
             <button onClick={() => setTab('drivers')} className={`flex-1 py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${tab === 'drivers' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>
@@ -623,11 +651,6 @@ const App: React.FC = () => {
                 <span className="flex items-center gap-3"><FileText className="text-slate-400"/> Legal & Privacy</span>
                 <ArrowRight size={16} className="text-slate-300" />
              </button>
-             <div className="h-px bg-slate-50 mx-4"></div>
-             <button onClick={() => setView('admin')} className="w-full flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-700 font-bold">
-                <span className="flex items-center gap-3"><Lock className="text-slate-400"/> Admin Portal</span>
-                <ArrowRight size={16} className="text-slate-300" />
-             </button>
           </div>
         </div>
       );
@@ -640,7 +663,7 @@ const App: React.FC = () => {
        <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
          {renderView()}
        </div>
-       {user && currentView !== 'ride-detail' && currentView !== 'admin' && <Navigation currentView={currentView} setView={setView} lang={lang} />}
+       {user && currentView !== 'ride-detail' && <Navigation currentView={currentView} setView={setView} lang={lang} />}
     </div>
   );
 };
