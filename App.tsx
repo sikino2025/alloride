@@ -233,11 +233,11 @@ const AuthView = ({ onLogin, lang, setLang }: { onLogin: (user: UserType) => voi
 
       <div className="w-full max-w-sm relative z-10 my-auto pt-20 pb-12">
         <div className="text-center mb-10">
-          <div className="flex justify-center mb-6 animate-float">
-             <Logo size={100} />
+          <div className="flex justify-center mb-6">
+             <Logo size={120} />
           </div>
-          <h1 className="text-4xl font-extrabold text-slate-900 mb-2 tracking-tight">alloride</h1>
-          <p className="text-slate-500 font-medium">{t.joinJourney}</p>
+          {/* Text is now in the logo, but we can keep a slogan */}
+          <p className="text-slate-500 font-medium mt-4">{t.joinJourney}</p>
         </div>
 
         <div className="bg-white/80 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-2xl shadow-indigo-100 border border-white">
@@ -294,7 +294,7 @@ const AuthView = ({ onLogin, lang, setLang }: { onLogin: (user: UserType) => voi
   );
 };
 
-const HomeView = ({ setView, setDetailRide, lang, setLang, user, allRides, bookedRides, onRateRide }: { setView: any, setDetailRide: any, lang: Language, setLang: any, user: UserType, allRides: Ride[], bookedRides: Ride[], onRateRide: (ride: Ride) => void }) => {
+const HomeView = ({ setView, setDetailRide, lang, setLang, user, allRides, bookedRides, onRateRide, setSelectedSeats }: { setView: any, setDetailRide: any, lang: Language, setLang: any, user: UserType, allRides: Ride[], bookedRides: Ride[], onRateRide: (ride: Ride) => void, setSelectedSeats: (n: number) => void }) => {
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [date, setDate] = useState(() => toLocalISOString(new Date()));
@@ -315,19 +315,16 @@ const HomeView = ({ setView, setDetailRide, lang, setLang, user, allRides, booke
 
   const displayRides = useMemo(() => {
     if (hasSearched) return filteredRides;
-    // Sort logic: Newest IDs (which are timestamps for new posts) come first.
-    // For existing mock data, we rely on the fact that new posts use "ride-{timestamp}" format
     const sorted = [...allRides].sort((a, b) => {
-        // Simple heuristic: if ID starts with 'ride-', it's newer than 'rX'
         const aNew = a.id.toString().startsWith('ride-');
         const bNew = b.id.toString().startsWith('ride-');
         if (aNew && !bNew) return -1;
         if (!aNew && bNew) return 1;
         if (aNew && bNew) return Number(b.id.split('-')[1]) - Number(a.id.split('-')[1]);
         return a.departureTime.getTime() - b.departureTime.getTime();
-    }).filter(r => r.driver.id !== user.id);
+    }).filter(r => r.driver.id !== user.id && r.seatsAvailable > 0); // Only show rides with seats
 
-    return showAll ? sorted : sorted.slice(0, 10); // Show 10 by default to catch new ones
+    return showAll ? sorted : sorted.slice(0, 10);
   }, [hasSearched, filteredRides, allRides, user.id, showAll]);
 
   const applySearch = () => {
@@ -344,6 +341,12 @@ const HomeView = ({ setView, setDetailRide, lang, setLang, user, allRides, booke
     if (filters.bestPrice) results.sort((a, b) => a.price - b.price);
     else results.sort((a, b) => a.departureTime.getTime() - b.departureTime.getTime());
     setFilteredRides(results);
+  };
+
+  const handleRideClick = (ride: Ride) => {
+    setSelectedSeats(passengers); // Set default seats to book based on current search
+    setDetailRide(ride);
+    setView('ride-detail');
   };
 
   return (
@@ -424,7 +427,7 @@ const HomeView = ({ setView, setDetailRide, lang, setLang, user, allRides, booke
          />
          {displayRides.length > 0 ? (
              <>
-             {displayRides.map(ride => (<RideCard key={ride.id} ride={ride} onClick={() => { setDetailRide(ride); setView('ride-detail'); }} t={t} />))}
+             {displayRides.map(ride => (<RideCard key={ride.id} ride={ride} onClick={() => handleRideClick(ride)} t={t} />))}
              {!showAll && !hasSearched && <button onClick={() => setShowAll(true)} className="w-full py-4 text-center text-slate-400 text-sm font-bold bg-white rounded-2xl shadow-sm border border-slate-100 mb-8">View All Available Trips</button>}
              </>
          ) : (<div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200"><div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300"><Search size={24}/></div><p className="text-slate-500 font-medium px-6">{t.noRidesFound}</p><button onClick={() => {setOrigin(''); setDestination(''); setHasSearched(false);}} className="mt-4 text-primary text-sm font-bold">Clear Search</button></div>)}
@@ -577,10 +580,20 @@ const WalletView = ({ lang }: { lang: Language }) => {
 
 const LeaderboardView = ({ lang }: { lang: Language }) => { const t = translations[lang]; return (<div className="pb-32 px-6 pt-12 bg-slate-50 min-h-full"><Header title={t.driverLeaderboard} /><div className="grid grid-cols-2 gap-4 mb-6"><div className="bg-white p-6 rounded-[2rem] shadow-card border border-slate-50"><div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center mb-4"><Star size={20} fill="currentColor" /></div><p className="text-slate-400 text-[10px] uppercase font-bold mb-1 tracking-wider">{t.ranking}</p><p className="text-4xl font-extrabold text-slate-900">#42</p></div><div className="bg-white p-6 rounded-[2rem] shadow-card border border-slate-50"><div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mb-4"><Zap size={20} fill="currentColor" /></div><p className="text-slate-400 text-[10px] uppercase font-bold mb-1 tracking-wider">{t.points}</p><p className="text-4xl font-extrabold text-slate-900">8.4k</p></div></div><LeaderboardChart /><div className="mt-8 space-y-4"><h3 className="font-bold text-slate-900 text-lg">{t.topDrivers}</h3>{[1, 2, 3].map((i) => (<div key={i} className="flex items-center justify-between bg-white p-5 rounded-3xl shadow-card border border-slate-50"><div className="flex items-center gap-4"><span className={`font-black text-xl w-8 text-center ${i === 1 ? 'text-yellow-500' : 'text-slate-300'}`}>{i}</span><img src={`https://i.pravatar.cc/150?img=${i + 10}`} className="w-12 h-12 rounded-full border-2 border-slate-50" alt="user" /><div><p className="font-bold text-slate-900">Alex Johnson</p><p className="text-xs text-slate-500 font-bold mt-1">320 rides</p></div></div><div className="text-right"><span className="font-bold text-slate-900">12k</span><span className="text-[10px] font-bold text-slate-400 block uppercase">Pts</span></div></div>))}</div></div>)};
 
-const RideDetailView = ({ ride, onBack, lang, onBook }: { ride: Ride, onBack: () => void, lang: Language, onBook: (ride: Ride) => void }) => {
+const RideDetailView = ({ ride, onBack, lang, onBook, initialSeats }: { ride: Ride, onBack: () => void, lang: Language, onBook: (ride: Ride, seats: number) => void, initialSeats: number }) => {
   const [safetyTip, setSafetyTip] = useState<string>("Loading route info...");
+  const [seatsToBook, setSeatsToBook] = useState(initialSeats);
   const t = translations[lang];
+
   useEffect(() => { generateRideSafetyBrief(ride.origin, ride.destination).then(setSafetyTip); }, [ride]);
+  
+  // Ensure we don't try to book more than available
+  useEffect(() => {
+    if (seatsToBook > ride.seatsAvailable) {
+        setSeatsToBook(ride.seatsAvailable);
+    }
+  }, [ride.seatsAvailable]);
+
   return (
     <div className="min-h-full bg-white pb-32">
       <div className="relative h-72">
@@ -592,8 +605,8 @@ const RideDetailView = ({ ride, onBack, lang, onBook }: { ride: Ride, onBack: ()
         <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl border border-slate-50">
            <div className="flex justify-between items-start mb-6">
               <div>
-                 <h1 className="text-3xl font-extrabold text-slate-900 mb-1">${ride.price}</h1>
-                 <p className="text-slate-400 font-bold text-xs uppercase tracking-wide">Total Price</p>
+                 <h1 className="text-3xl font-extrabold text-slate-900 mb-1">${ride.price * seatsToBook}</h1>
+                 <p className="text-slate-400 font-bold text-xs uppercase tracking-wide">Total for {seatsToBook} seat{seatsToBook > 1 ? 's' : ''}</p>
               </div>
               <div className="text-right">
                  <div className="flex items-center gap-2 justify-end mb-1">
@@ -657,6 +670,24 @@ const RideDetailView = ({ ride, onBack, lang, onBook }: { ride: Ride, onBack: ()
                  </div>
               </div>
            </div>
+            
+            {/* Seat Selector */}
+            <div className="mt-4 bg-slate-50 p-5 rounded-2xl flex justify-between items-center">
+                <span className="font-bold text-slate-900">Seats to Book</span>
+                <div className="flex items-center gap-4">
+                    <button 
+                        onClick={() => setSeatsToBook(Math.max(1, seatsToBook - 1))} 
+                        className="w-8 h-8 rounded-full bg-white shadow-sm font-bold text-slate-600 disabled:opacity-50"
+                        disabled={seatsToBook <= 1}
+                    >-</button>
+                    <span className="font-bold text-xl">{seatsToBook}</span>
+                    <button 
+                        onClick={() => setSeatsToBook(Math.min(ride.seatsAvailable, seatsToBook + 1))} 
+                        className="w-8 h-8 rounded-full bg-white shadow-sm font-bold text-slate-600 disabled:opacity-50"
+                        disabled={seatsToBook >= ride.seatsAvailable}
+                    >+</button>
+                </div>
+            </div>
 
            {/* Description */}
            {ride.description && (
@@ -668,7 +699,9 @@ const RideDetailView = ({ ride, onBack, lang, onBook }: { ride: Ride, onBack: ()
              </div>
            )}
 
-           <Button onClick={() => onBook(ride)} className="mt-8 w-full shadow-2xl shadow-indigo-500/30">Book This Ride</Button>
+           <Button onClick={() => onBook(ride, seatsToBook)} className="mt-8 w-full shadow-2xl shadow-indigo-500/30">
+               Book {seatsToBook} Seat{seatsToBook > 1 ? 's' : ''}
+           </Button>
         </div>
       </div>
     </div>
@@ -820,6 +853,7 @@ const App: React.FC = () => {
   const [pendingDrivers, setPendingDrivers] = useState<UserType[]>([]);
   const [ratingModalOpen, setRatingModalOpen] = useState(false);
   const [rideToRate, setRideToRate] = useState<Ride | null>(null);
+  const [selectedSeats, setSelectedSeats] = useState(1);
 
   useEffect(() => { setAllRides(generateMockRides()); }, []);
 
@@ -840,9 +874,20 @@ const App: React.FC = () => {
      if (user && user.id === id) { setUser({ ...user, isVerified: false, driverStatus: 'rejected' }); alert("Application Rejected."); } else alert("Driver Rejected.");
   };
 
-  const handleBookRide = (ride: Ride) => {
-      setBookedRides(prev => [ride, ...prev]);
-      alert("Ride booked successfully! It is now in your bookings.");
+  const handleBookRide = (ride: Ride, seats: number) => {
+      // Add to booked list
+      const rideBooking = { ...ride, bookedSeats: seats }; // Just for local reference if needed
+      setBookedRides(prev => [rideBooking, ...prev]);
+      
+      // Update seat count in global state
+      setAllRides(prev => prev.map(r => {
+        if (r.id === ride.id) {
+            return { ...r, seatsAvailable: Math.max(0, r.seatsAvailable - seats) };
+        }
+        return r;
+      }));
+
+      alert(`Successfully booked ${seats} seat(s)!`);
       setView('home');
       setSelectedRide(null);
   };
@@ -867,9 +912,9 @@ const App: React.FC = () => {
 
   const renderView = () => {
     switch(currentView) {
-      case 'home': case 'search': return <HomeView setView={setView} setDetailRide={setSelectedRide} lang={lang} setLang={setLang} user={user} allRides={allRides} bookedRides={bookedRides} onRateRide={handleRateRide} />;
+      case 'home': case 'search': return <HomeView setView={setView} setDetailRide={setSelectedRide} lang={lang} setLang={setLang} user={user} allRides={allRides} bookedRides={bookedRides} onRateRide={handleRateRide} setSelectedSeats={setSelectedSeats} />;
       case 'post': return <PostRideView setView={setView} lang={lang} user={user} updateUser={updateUser} onPublish={publishRide} />;
-      case 'ride-detail': return selectedRide ? <RideDetailView ride={selectedRide} onBack={() => setView('home')} lang={lang} onBook={handleBookRide} /> : <HomeView setView={setView} setDetailRide={setSelectedRide} lang={lang} setLang={setLang} user={user} allRides={allRides} bookedRides={bookedRides} onRateRide={handleRateRide} />;
+      case 'ride-detail': return selectedRide ? <RideDetailView ride={selectedRide} onBack={() => setView('home')} lang={lang} onBook={handleBookRide} initialSeats={selectedSeats} /> : <HomeView setView={setView} setDetailRide={setSelectedRide} lang={lang} setLang={setLang} user={user} allRides={allRides} bookedRides={bookedRides} onRateRide={handleRateRide} setSelectedSeats={setSelectedSeats} />;
       case 'wallet': return <WalletView lang={lang} />;
       case 'leaderboard': return <LeaderboardView lang={lang} />;
       case 'admin': return <AdminView setView={setView} pendingDrivers={pendingDrivers} approveDriver={approveDriver} rejectDriver={rejectDriver} liveRoutes={allRides.filter(r => r.driver.id !== user.id)} />;
@@ -911,7 +956,7 @@ const App: React.FC = () => {
           </div>
         );
       }
-      default: return <HomeView setView={setView} setDetailRide={setSelectedRide} lang={lang} setLang={setLang} user={user} allRides={allRides} bookedRides={bookedRides} onRateRide={handleRateRide} />;
+      default: return <HomeView setView={setView} setDetailRide={setSelectedRide} lang={lang} setLang={setLang} user={user} allRides={allRides} bookedRides={bookedRides} onRateRide={handleRateRide} setSelectedSeats={setSelectedSeats} />;
     }
   };
 
