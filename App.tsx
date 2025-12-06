@@ -222,16 +222,16 @@ const AuthView = ({ onLogin, lang, setLang }: { onLogin: (user: UserType) => voi
   };
 
   return (
-    <div className="h-full flex flex-col items-center justify-center p-6 bg-slate-50 relative overflow-hidden">
-      <div className="absolute top-[-20%] left-[-20%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-[-20%] right-[-20%] w-[500px] h-[500px] bg-secondary/10 rounded-full blur-3xl"></div>
+    <div className="min-h-full flex flex-col items-center justify-center p-6 bg-slate-50 relative overflow-x-hidden py-12">
+      <div className="absolute top-[-20%] left-[-20%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute bottom-[-20%] right-[-20%] w-[500px] h-[500px] bg-secondary/10 rounded-full blur-3xl pointer-events-none"></div>
 
       <div className="absolute top-6 right-6 z-20 flex bg-white/50 backdrop-blur-md rounded-full p-1 shadow-sm border border-white/20">
          <button onClick={() => setLang('en')} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${lang === 'en' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>EN</button>
          <button onClick={() => setLang('fr')} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${lang === 'fr' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>FR</button>
       </div>
 
-      <div className="w-full max-w-sm relative z-10">
+      <div className="w-full max-w-sm relative z-10 my-auto">
         <div className="text-center mb-10">
           <div className="flex justify-center mb-6 animate-float">
              <Logo size={100} />
@@ -582,7 +582,7 @@ const RideDetailView = ({ ride, onBack, lang, onBook }: { ride: Ride, onBack: ()
   const t = translations[lang];
   useEffect(() => { generateRideSafetyBrief(ride.origin, ride.destination).then(setSafetyTip); }, [ride]);
   return (
-    <div className="h-full bg-white pb-32 overflow-y-auto">
+    <div className="min-h-full bg-white pb-32">
       <div className="relative h-72">
         <img src={`https://picsum.photos/800/600?random=${ride.id}`} className="w-full h-full object-cover" alt="Map" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-white"></div>
