@@ -1,3 +1,4 @@
+
 export const translations = {
   en: {
     home: "Home",
@@ -49,7 +50,15 @@ export const translations = {
     luggage: "Luggage",
     small: "Small",
     medium: "Medium",
-    large: "Large"
+    large: "Large",
+    legalPrivacy: "Legal & Privacy",
+    termsOfService: "Terms of Service",
+    privacyPolicy: "Privacy Policy",
+    language: "Language",
+    signOut: "Sign Out",
+    legalText1: "By using this platform, you agree to our terms regarding ride sharing safety, payment processing, and community conduct.",
+    legalText2: "We value your privacy. Your data is used solely to facilitate rides and ensure safety. We do not sell your personal information to third parties.",
+    back: "Back"
   },
   fr: {
     home: "Accueil",
@@ -101,7 +110,15 @@ export const translations = {
     luggage: "Bagages",
     small: "Petit",
     medium: "Moyen",
-    large: "Grand"
+    large: "Grand",
+    legalPrivacy: "Mentions Légales",
+    termsOfService: "Conditions d'utilisation",
+    privacyPolicy: "Politique de confidentialité",
+    language: "Langue",
+    signOut: "Se déconnecter",
+    legalText1: "En utilisant cette plateforme, vous acceptez nos conditions concernant la sécurité du covoiturage, le traitement des paiements et la conduite communautaire.",
+    legalText2: "Nous tenons à votre vie privée. Vos données sont utilisées uniquement pour faciliter les trajets et assurer la sécurité.",
+    back: "Retour"
   }
 };
 

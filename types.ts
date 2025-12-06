@@ -1,3 +1,4 @@
+
 export enum RideType {
   CITY_TO_CITY = 'CITY_TO_CITY',
   URBAN = 'URBAN',
@@ -62,7 +63,7 @@ export interface Ride {
   description?: string;
 }
 
-export type ViewState = 'auth' | 'home' | 'search' | 'post' | 'wallet' | 'profile' | 'ride-detail' | 'leaderboard' | 'admin';
+export type ViewState = 'auth' | 'home' | 'search' | 'post' | 'wallet' | 'profile' | 'ride-detail' | 'leaderboard' | 'admin' | 'legal';
 
 export interface WalletTransaction {
   id: string;

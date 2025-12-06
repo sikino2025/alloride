@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Navigation } from './components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from './types';
 import { translations, Language } from './utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Filter, Star, CheckCircle2, Music, Zap, Info, Share2, ScanFace, DollarSign, Upload, FileText, ChevronDown, Snowflake, Dog, Cigarette, Car, Clock, Check, Shield, XCircle, Eye, Lock, Mail, Key, Camera, CreditCard, Briefcase, Phone, Smartphone, ChevronLeft } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Filter, Star, CheckCircle2, Music, Zap, Info, Share2, ScanFace, DollarSign, Upload, FileText, ChevronDown, Snowflake, Dog, Cigarette, Car, Clock, Check, Shield, XCircle, Eye, Lock, Mail, Key, Camera, CreditCard, Briefcase, Phone, Smartphone, ChevronLeft, Globe } from 'lucide-react';
 import { LeaderboardChart } from './components/LeaderboardChart';
 import { generateRideSafetyBrief, optimizeRideDescription } from './services/geminiService';
 import { Logo } from './components/Logo';
@@ -593,6 +593,40 @@ const AdminView = ({ setView, pendingDrivers, approveDriver, rejectDriver, liveR
    );
 };
 
+// Legal View
+const LegalView = ({ onBack, lang }: { onBack: () => void, lang: Language }) => {
+  const t = translations[lang];
+  return (
+    <div className="pb-32 px-6 pt-12 bg-slate-50 min-h-full">
+        <Header title={t.legalPrivacy} rightAction={<button onClick={onBack} className="p-2 bg-white rounded-full shadow-sm text-slate-400"><XCircle size={24}/></button>} />
+        <div className="bg-white p-6 rounded-[2rem] shadow-card space-y-8">
+            <section>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
+                    <Shield size={20} />
+                  </div>
+                  <h3 className="font-bold text-lg text-slate-900">{t.termsOfService}</h3>
+                </div>
+                <p className="text-sm text-slate-500 leading-relaxed font-medium">{t.legalText1}</p>
+            </section>
+             <section>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
+                    <Eye size={20} />
+                  </div>
+                  <h3 className="font-bold text-lg text-slate-900">{t.privacyPolicy}</h3>
+                </div>
+                <p className="text-sm text-slate-500 leading-relaxed font-medium">{t.legalText2}</p>
+            </section>
+            
+            <div className="pt-4 border-t border-slate-100">
+              <Button onClick={onBack} variant="secondary">{t.back}</Button>
+            </div>
+        </div>
+    </div>
+  );
+};
+
 // --- Main App Logic ---
 
 const App: React.FC = () => {
@@ -629,31 +663,44 @@ const App: React.FC = () => {
       case 'wallet': return <WalletView lang={lang} />;
       case 'leaderboard': return <LeaderboardView lang={lang} />;
       case 'admin': return <AdminView setView={setView} pendingDrivers={pendingDrivers} approveDriver={approveDriver} rejectDriver={rejectDriver} liveRoutes={allRides.filter(r => r.driver.id !== user.id)} />;
-      case 'profile': return (
-        <div className="pt-20 px-6 space-y-6 pb-32">
-          <Header title="Profile" rightAction={<button onClick={() => setUser(null)} className="text-red-500 font-bold text-sm">Sign Out</button>} />
-          <div className="bg-white p-6 rounded-[2rem] shadow-card text-center relative overflow-hidden">
-            {user.avatar ? (
-              <img src={user.avatar} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-slate-50 object-cover" />
-            ) : (
-              <div className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-slate-50 bg-gradient-to-br from-indigo-100 to-indigo-50 text-indigo-500 flex items-center justify-center text-3xl font-bold shadow-inner">
-                {user.firstName[0]}{user.lastName[0]}
+      case 'legal': return <LegalView onBack={() => setView('profile')} lang={lang} />;
+      case 'profile': {
+        const t = translations[lang];
+        return (
+          <div className="pt-20 px-6 space-y-6 pb-32">
+            <Header title={t.profile} rightAction={<button onClick={() => setUser(null)} className="text-red-500 font-bold text-sm">{t.signOut}</button>} />
+            <div className="bg-white p-6 rounded-[2rem] shadow-card text-center relative overflow-hidden">
+              {user.avatar ? (
+                <img src={user.avatar} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-slate-50 object-cover" />
+              ) : (
+                <div className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-slate-50 bg-gradient-to-br from-indigo-100 to-indigo-50 text-indigo-500 flex items-center justify-center text-3xl font-bold shadow-inner">
+                  {user.firstName[0]}{user.lastName[0]}
+                </div>
+              )}
+              <h2 className="text-2xl font-bold text-slate-900">{user.firstName} {user.lastName}</h2>
+              <p className="text-slate-400 font-medium mb-4 capitalize">{user.role}</p>
+              {user.isVerified && <div className="inline-flex items-center gap-2 bg-green-50 text-green-600 px-4 py-2 rounded-xl font-bold text-sm"><CheckCircle2 size={16}/> {t.driverVerified}</div>}
+              {user.driverStatus === 'pending' && <div className="inline-flex items-center gap-2 bg-amber-50 text-amber-600 px-4 py-2 rounded-xl font-bold text-sm mt-2"><Clock size={16}/> {t.verificationRequired}</div>}
+            </div>
+            
+            <div className="bg-white p-2 rounded-[2rem] shadow-card space-y-1">
+              <div className="flex items-center justify-between p-4">
+                <div className="flex items-center gap-3 font-bold text-slate-700">
+                  <Globe className="text-slate-400"/> {t.language}
+                </div>
+                <div className="flex bg-slate-100 rounded-lg p-1">
+                  <button onClick={() => setLang('en')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${lang === 'en' ? 'bg-white shadow text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>EN</button>
+                  <button onClick={() => setLang('fr')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${lang === 'fr' ? 'bg-white shadow text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>FR</button>
+                </div>
               </div>
-            )}
-            <h2 className="text-2xl font-bold text-slate-900">{user.firstName} {user.lastName}</h2>
-            <p className="text-slate-400 font-medium mb-4 capitalize">{user.role}</p>
-            {user.isVerified && <div className="inline-flex items-center gap-2 bg-green-50 text-green-600 px-4 py-2 rounded-xl font-bold text-sm"><CheckCircle2 size={16}/> Identity Verified</div>}
-            {user.driverStatus === 'pending' && <div className="inline-flex items-center gap-2 bg-amber-50 text-amber-600 px-4 py-2 rounded-xl font-bold text-sm mt-2"><Clock size={16}/> Verification Pending</div>}
+               <button onClick={() => setView('legal')} className="w-full flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-700 font-bold">
+                  <span className="flex items-center gap-3"><FileText className="text-slate-400"/> {t.legalPrivacy}</span>
+                  <ArrowRight size={16} className="text-slate-300" />
+               </button>
+            </div>
           </div>
-          
-          <div className="bg-white p-4 rounded-[2rem] shadow-card space-y-1">
-             <button className="w-full flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-700 font-bold">
-                <span className="flex items-center gap-3"><FileText className="text-slate-400"/> Legal & Privacy</span>
-                <ArrowRight size={16} className="text-slate-300" />
-             </button>
-          </div>
-        </div>
-      );
+        );
+      }
       default: return <HomeView setView={setView} setDetailRide={setSelectedRide} lang={lang} setLang={setLang} user={user} allRides={allRides} />;
     }
   };
