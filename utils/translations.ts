@@ -58,7 +58,30 @@ export const translations = {
     signOut: "Sign Out",
     legalText1: "By using this platform, you agree to our terms regarding ride sharing safety, payment processing, and community conduct.",
     legalText2: "We value your privacy. Your data is used solely to facilitate rides and ensure safety. We do not sell your personal information to third parties.",
-    back: "Back"
+    back: "Back",
+    // Auth
+    joinJourney: "Join the journey.",
+    signUp: "Sign Up",
+    logIn: "Log In",
+    createAccount: "Create Account",
+    welcomeBack: "Welcome Back",
+    firstName: "First Name",
+    lastName: "Last Name",
+    phone: "Phone",
+    email: "Email",
+    password: "Password",
+    passenger: "Passenger",
+    driver: "Driver",
+    tapCamera: "Tap Camera",
+    nextDocs: "Next: Docs",
+    vehicleDetails: "Vehicle Details",
+    takeSelfie: "Take a Selfie",
+    reviewInProgress: "Review in Progress",
+    verifyingDocs: "We are verifying your documents.",
+    backToHome: "Back to Home",
+    driverSetup: "Driver Setup",
+    letsGetRoad: "Let's get you on the road",
+    submit: "Submit"
   },
   fr: {
     home: "Accueil",
@@ -118,7 +141,30 @@ export const translations = {
     signOut: "Se déconnecter",
     legalText1: "En utilisant cette plateforme, vous acceptez nos conditions concernant la sécurité du covoiturage, le traitement des paiements et la conduite communautaire.",
     legalText2: "Nous tenons à votre vie privée. Vos données sont utilisées uniquement pour faciliter les trajets et assurer la sécurité.",
-    back: "Retour"
+    back: "Retour",
+    // Auth
+    joinJourney: "Rejoignez l'aventure.",
+    signUp: "S'inscrire",
+    logIn: "Connexion",
+    createAccount: "Créer un compte",
+    welcomeBack: "Bon retour",
+    firstName: "Prénom",
+    lastName: "Nom",
+    phone: "Téléphone",
+    email: "Courriel",
+    password: "Mot de passe",
+    passenger: "Passager",
+    driver: "Conducteur",
+    tapCamera: "Photo",
+    nextDocs: "Suivant : Docs",
+    vehicleDetails: "Détails du véhicule",
+    takeSelfie: "Prendre un selfie",
+    reviewInProgress: "Examen en cours",
+    verifyingDocs: "Nous vérifions vos documents.",
+    backToHome: "Retour à l'accueil",
+    driverSetup: "Configuration Conducteur",
+    letsGetRoad: "En route !",
+    submit: "Soumettre"
   }
 };
 
