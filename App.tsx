@@ -968,7 +968,13 @@ const App: React.FC = () => {
   const renderView = () => {
     switch(currentView) {
       case 'home': case 'search': return <HomeView setView={setView} setDetailRide={setSelectedRide} lang={lang} setLang={setLang} user={user} allRides={allRides} bookedRides={bookedRides} onRateRide={handleRateRide} setSelectedSeats={setSelectedSeats} />;
-      case 'post': return <PostRideView setView={setView} lang={lang} user={user} updateUser={updateUser} onPublish={publishRide} />;
+      case 'post': 
+        if (user.role !== 'driver') {
+          // Guard: If passenger tries to access post view, redirect to home
+          setTimeout(() => setView('home'), 0);
+          return <HomeView setView={setView} setDetailRide={setSelectedRide} lang={lang} setLang={setLang} user={user} allRides={allRides} bookedRides={bookedRides} onRateRide={handleRateRide} setSelectedSeats={setSelectedSeats} />;
+        }
+        return <PostRideView setView={setView} lang={lang} user={user} updateUser={updateUser} onPublish={publishRide} />;
       case 'ride-detail': return selectedRide ? <RideDetailView ride={selectedRide} onBack={() => setView('home')} lang={lang} onBook={handleBookRide} initialSeats={selectedSeats} /> : <HomeView setView={setView} setDetailRide={setSelectedRide} lang={lang} setLang={setLang} user={user} allRides={allRides} bookedRides={bookedRides} onRateRide={handleRateRide} setSelectedSeats={setSelectedSeats} />;
       case 'wallet': return <WalletView lang={lang} />;
       case 'leaderboard': return <LeaderboardView lang={lang} />;
@@ -1020,7 +1026,7 @@ const App: React.FC = () => {
        <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
          {renderView()}
        </div>
-       {user && currentView !== 'ride-detail' && <Navigation currentView={currentView} setView={setView} lang={lang} />}
+       {user && currentView !== 'ride-detail' && <Navigation currentView={currentView} setView={setView} lang={lang} userRole={user.role} />}
        <RateModal 
           isOpen={ratingModalOpen} 
           onClose={submitRating} 

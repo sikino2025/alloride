@@ -1,21 +1,24 @@
 import React from 'react';
 import { Home, Search, Plus, Wallet, User, Trophy, ShieldAlert } from 'lucide-react';
-import { ViewState } from '../types';
+import { ViewState, UserRole } from '../types';
 import { translations, Language } from '../utils/translations';
 
 interface NavigationProps {
   currentView: ViewState;
   setView: (view: ViewState) => void;
   lang: Language;
+  userRole: UserRole;
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ currentView, setView, lang }) => {
+export const Navigation: React.FC<NavigationProps> = ({ currentView, setView, lang, userRole }) => {
   const t = translations[lang];
 
+  // Filter navigation items based on role
   const navItems = [
     { id: 'home', icon: Home, label: t.home },
     { id: 'search', icon: Search, label: t.search },
-    { id: 'post', icon: Plus, label: t.post, isFab: true },
+    // Only drivers can see the Post button
+    ...(userRole === 'driver' ? [{ id: 'post', icon: Plus, label: t.post, isFab: true }] : []),
     { id: 'wallet', icon: Wallet, label: t.wallet },
     { id: 'admin', icon: ShieldAlert, label: 'Admin' },
     { id: 'profile', icon: User, label: t.profile },
