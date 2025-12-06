@@ -222,7 +222,7 @@ const AuthView = ({ onLogin, lang, setLang }: { onLogin: (user: UserType) => voi
   };
 
   return (
-    <div className="min-h-full flex flex-col items-center justify-center p-6 bg-slate-50 relative overflow-x-hidden py-12">
+    <div className="min-h-full w-full flex flex-col items-center p-6 bg-slate-50 relative overflow-x-hidden">
       <div className="absolute top-[-20%] left-[-20%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-[-20%] right-[-20%] w-[500px] h-[500px] bg-secondary/10 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -231,7 +231,7 @@ const AuthView = ({ onLogin, lang, setLang }: { onLogin: (user: UserType) => voi
          <button onClick={() => setLang('fr')} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${lang === 'fr' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>FR</button>
       </div>
 
-      <div className="w-full max-w-sm relative z-10 my-auto">
+      <div className="w-full max-w-sm relative z-10 my-auto pt-20 pb-12">
         <div className="text-center mb-10">
           <div className="flex justify-center mb-6 animate-float">
              <Logo size={100} />
