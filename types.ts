@@ -23,6 +23,12 @@ export interface User {
     insurance: boolean;
     photo: boolean;
   };
+  // URLs for admin verification
+  documentUrls?: {
+    license?: string;
+    insurance?: string;
+    photo?: string;
+  };
   rating: number;
   totalRides: number;
   // Driver specific

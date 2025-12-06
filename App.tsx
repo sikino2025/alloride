@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Navigation } from './components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from './types';
 import { translations, Language } from './utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Filter, Star, CheckCircle2, Music, Zap, Info, Share2, ScanFace, DollarSign, Upload, FileText, ChevronDown, Snowflake, Dog, Cigarette, Car, Clock, Check, Shield, XCircle, Eye, Lock, Mail, Key, Camera, CreditCard, Briefcase, Phone, Smartphone, ChevronLeft, Globe, MessageSquare, ThumbsUp } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Filter, Star, CheckCircle2, Music, Zap, Info, Share2, ScanFace, DollarSign, Upload, FileText, ChevronDown, Snowflake, Dog, Cigarette, Car, Clock, Check, Shield, XCircle, Eye, Lock, Mail, Key, Camera, CreditCard, Briefcase, Phone, Smartphone, ChevronLeft, Globe, MessageSquare, ThumbsUp, Download } from 'lucide-react';
 import { LeaderboardChart } from './components/LeaderboardChart';
 import { generateRideSafetyBrief, optimizeRideDescription } from './services/geminiService';
 import { Logo } from './components/Logo';
@@ -28,11 +28,35 @@ const getDisplayDate = (dateStr: string, t: any) => {
 };
 
 // --- Data & Mocks ---
-const CITIES = ["Montreal, QC", "Quebec City, QC", "Laval, QC", "Gatineau, QC", "Ottawa, ON", "Toronto, ON", "Mississauga, ON", "Hamilton, ON", "London, ON", "Kingston, ON"];
+const CITIES = [
+  // Quebec
+  "Montreal, QC", "Quebec City, QC", "Laval, QC", "Gatineau, QC", "Sherbrooke, QC", "Trois-Rivières, QC", "Chicoutimi, QC",
+  // Ontario
+  "Toronto, ON", "Ottawa, ON", "Mississauga, ON", "Brampton, ON", "Hamilton, ON", "London, ON", "Markham, ON", "Vaughan, ON", "Kitchener, ON", "Windsor, ON", "Kingston, ON", "Sudbury, ON", "Thunder Bay, ON", "Barrie, ON", "Guelph, ON", "St. Catharines, ON",
+  // British Columbia
+  "Vancouver, BC", "Victoria, BC", "Surrey, BC", "Burnaby, BC", "Kelowna, BC", "Abbotsford, BC", "Nanaimo, BC", "Kamloops, BC",
+  // Alberta
+  "Calgary, AB", "Edmonton, AB", "Red Deer, AB", "Lethbridge, AB", "Fort McMurray, AB",
+  // Saskatchewan
+  "Saskatoon, SK", "Regina, SK", "Prince Albert, SK",
+  // Manitoba
+  "Winnipeg, MB", "Brandon, MB",
+  // Atlantic Canada
+  "Halifax, NS", "Sydney, NS",
+  "Moncton, NB", "Fredericton, NB", "Saint John, NB",
+  "St. John's, NL",
+  "Charlottetown, PE",
+  // Territories
+  "Whitehorse, YT", "Yellowknife, NT", "Iqaluit, NU"
+].sort();
+
 const DRIVERS = [
   { name: "Sarah Chénier", avatar: "https://i.pravatar.cc/150?u=sarah", rating: 4.9, rides: 320, verified: true },
   { name: "Mike Ross", avatar: "https://i.pravatar.cc/150?u=mike", rating: 4.7, rides: 89, verified: true },
+  { name: "David Kim", avatar: "https://i.pravatar.cc/150?u=david", rating: 4.8, rides: 150, verified: true },
+  { name: "Jessica Tremblay", avatar: "https://i.pravatar.cc/150?u=jessica", rating: 5.0, rides: 42, verified: true },
 ];
+
 const getRandom = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 const MOCK_USER_TEMPLATE: UserType = {
   id: 'u1', firstName: 'Alex', lastName: 'Rivera', email: 'alex@example.com', phone: '514-555-0199', role: 'passenger', avatar: 'https://i.pravatar.cc/150?u=alex', isVerified: true, driverStatus: 'approved', documentsUploaded: { license: true, insurance: true, photo: true }, rating: 4.9, totalRides: 142,
@@ -43,7 +67,8 @@ const generateMockRides = (): Ride[] => {
   const rides: Ride[] = [];
   let idCounter = 1;
   const now = new Date();
-  for (let i = 0; i < 15; i++) {
+  // Increased mock data to 50 rides to cover the larger list of cities
+  for (let i = 0; i < 50; i++) {
      const origin = getRandom(CITIES);
      let dest = getRandom(CITIES);
      while (dest === origin) dest = getRandom(CITIES); 
@@ -54,8 +79,8 @@ const generateMockRides = (): Ride[] => {
      rides.push({
         id: `r${idCounter++}`,
         driver: { ...MOCK_USER_TEMPLATE, firstName: driver.name.split(' ')[0], lastName: driver.name.split(' ')[1], avatar: driver.avatar, rating: driver.rating, totalRides: driver.rides, isVerified: driver.verified, role: 'driver', vehicle: { make: ["Toyota", "Honda", "Tesla", "Hyundai"][Math.floor(Math.random()*4)], model: ["RAV4", "Civic", "Model 3", "Tucson"][Math.floor(Math.random()*4)], year: "2022", color: ["White", "Black", "Grey", "Blue"][Math.floor(Math.random()*4)], plate: `${String.fromCharCode(65+Math.random()*26)}${Math.floor(Math.random()*999)} ${String.fromCharCode(65+Math.random()*26)}${String.fromCharCode(65+Math.random()*26)}` } },
-        origin: origin, destination: dest, stops: [], departureTime: new Date(date), arrivalTime: new Date(date.getTime() + 3600000 * 3), price: 45, currency: 'CAD', seatsAvailable: Math.floor(Math.random() * 3) + 1, luggage: { small: 2, medium: 1, large: 0 },
-        features: { instantBook: true, wifi: true, music: true, pets: false, smoking: false, winterTires: true }, distanceKm: 250, description: `Heading to ${dest.split(',')[0]} for the weekend. I can pick you up at the main metro station or downtown. Flexible with stops.`
+        origin: origin, destination: dest, stops: [], departureTime: new Date(date), arrivalTime: new Date(date.getTime() + 3600000 * (Math.random() * 4 + 1)), price: Math.floor(Math.random() * 60) + 30, currency: 'CAD', seatsAvailable: Math.floor(Math.random() * 3) + 1, luggage: { small: 2, medium: 1, large: 0 },
+        features: { instantBook: Math.random() > 0.5, wifi: Math.random() > 0.5, music: true, pets: Math.random() > 0.8, smoking: false, winterTires: true }, distanceKm: Math.floor(Math.random() * 400) + 50, description: `Heading to ${dest.split(',')[0]} for the weekend. I can pick you up at the main metro station or downtown. Flexible with stops.`
      });
   }
   return rides.sort((a, b) => a.departureTime.getTime() - b.departureTime.getTime());
@@ -442,6 +467,7 @@ const PostRideView = ({ setView, lang, user, updateUser, onPublish }: { setView:
   const [onboardingStep, setOnboardingStep] = useState(1);
   const [vehicle, setVehicle] = useState({ make: '', model: '', year: '', color: '', plate: '' });
   const [uploadedDocs, setUploadedDocs] = useState<{ [key: string]: boolean }>({ license: false, insurance: false, photo: false });
+  const [docUrls, setDocUrls] = useState<{ [key: string]: string }>({}); // Store Blob URLs
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -458,21 +484,42 @@ const PostRideView = ({ setView, lang, user, updateUser, onPublish }: { setView:
 
   const handleVehicleSubmit = (e: React.FormEvent) => { e.preventDefault(); setOnboardingStep(2); };
   const triggerUpload = (type: string) => { setCurrentUploadType(type); fileInputRef.current?.click(); };
+  
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setProfilePhoto(URL.createObjectURL(e.target.files[0]));
+      const file = e.target.files[0];
+      const url = URL.createObjectURL(file);
+      setProfilePhoto(url);
       setUploadedDocs(prev => ({ ...prev, photo: true }));
     }
   };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
      if (e.target.files && e.target.files.length > 0 && currentUploadType) {
+        const file = e.target.files[0];
+        const url = URL.createObjectURL(file);
+        setDocUrls(prev => ({ ...prev, [currentUploadType]: url }));
         setTimeout(() => setUploadedDocs(prev => ({...prev, [currentUploadType]: true})), 500);
      }
   };
+
   const submitForApproval = () => {
-    updateUser({ ...user, isVerified: false, driverStatus: 'pending', avatar: profilePhoto || user.avatar, vehicle, documentsUploaded: { ...user.documentsUploaded, license: true, insurance: true, photo: true } });
+    updateUser({ 
+        ...user, 
+        isVerified: false, 
+        driverStatus: 'pending', 
+        avatar: profilePhoto || user.avatar, 
+        vehicle, 
+        documentsUploaded: { ...user.documentsUploaded, license: true, insurance: true, photo: true },
+        documentUrls: {
+            license: docUrls.license,
+            insurance: docUrls.insurance,
+            photo: profilePhoto || undefined
+        }
+    });
     alert("Submitted for approval.");
   };
+
   const handlePublish = () => {
      const departure = new Date(`${date}T${time || '08:00'}`);
      onPublish({ id: `ride-${Date.now()}`, driver: user, origin, destination, stops: [], departureTime: departure, arrivalTime: new Date(departure.getTime() + 10800000), price, currency: 'CAD', seatsAvailable: seats, luggage, features: { instantBook: true, wifi: true, music: true, pets: false, smoking: false, winterTires: true }, distanceKm: 300, description });
@@ -763,16 +810,24 @@ const AdminView = ({ setView, pendingDrivers, approveDriver, rejectDriver, liveR
                      
                      <div className="grid grid-cols-3 gap-2 mb-6">
                         {[
-                           { label: 'License', done: d.documentsUploaded.license },
-                           { label: 'Insurance', done: d.documentsUploaded.insurance },
-                           { label: 'Photo', done: d.documentsUploaded.photo }
+                           { id: 'license', label: 'License', done: d.documentsUploaded.license, url: d.documentUrls?.license },
+                           { id: 'insurance', label: 'Insurance', done: d.documentsUploaded.insurance, url: d.documentUrls?.insurance },
+                           { id: 'photo', label: 'Photo', done: d.documentsUploaded.photo, url: d.documentUrls?.photo || d.avatar }
                         ].map(doc => (
-                           <div key={doc.label} className={`p-2 rounded-xl text-center border ${doc.done ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-100'}`}>
-                              <div className={`mx-auto w-6 h-6 rounded-full flex items-center justify-center mb-1 ${doc.done ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
-                                 {doc.done ? <Check size={14} strokeWidth={3} /> : <XCircle size={14} />}
+                           <a 
+                              key={doc.id} 
+                              href={doc.url || '#'} 
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download={`driver_${d.firstName}_${doc.id}`}
+                              className={`p-2 rounded-xl text-center border transition-all hover:scale-105 active:scale-95 flex flex-col items-center justify-center cursor-pointer ${doc.done && doc.url ? 'bg-blue-50 border-blue-200 hover:bg-blue-100' : 'bg-slate-50 border-slate-100 opacity-50 cursor-not-allowed'}`}
+                              onClick={(e) => { if(!doc.url) e.preventDefault(); }}
+                           >
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${doc.done ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                                 {doc.done ? <Download size={16} /> : <XCircle size={16} />}
                               </div>
-                              <p className={`text-[10px] font-bold uppercase ${doc.done ? 'text-green-700' : 'text-slate-400'}`}>{doc.label}</p>
-                           </div>
+                              <p className={`text-[10px] font-bold uppercase ${doc.done ? 'text-blue-700' : 'text-slate-400'}`}>{doc.label}</p>
+                           </a>
                         ))}
                      </div>
 
