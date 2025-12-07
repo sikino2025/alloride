@@ -15,7 +15,7 @@ const toLocalISOString = (date: Date) => {
   return adjustedDate.toISOString().split('T')[0];
 };
 
-// COMPRESSION UTILITY: Resize images to max 800px to ensure they fit in LocalStorage
+// COMPRESSION UTILITY: Aggressive compression to ensure 3 images fit in LocalStorage (5MB limit)
 const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -25,8 +25,9 @@ const compressImage = (file: File): Promise<string> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 800;
-                const MAX_HEIGHT = 800;
+                // Reduced max dimension to 600px
+                const MAX_WIDTH = 600;
+                const MAX_HEIGHT = 600;
                 let width = img.width;
                 let height = img.height;
 
@@ -46,8 +47,8 @@ const compressImage = (file: File): Promise<string> => {
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
                     ctx.drawImage(img, 0, 0, width, height);
-                    // Compress to JPEG 0.7 quality
-                    resolve(canvas.toDataURL('image/jpeg', 0.7));
+                    // Aggressive JPEG compression (0.5)
+                    resolve(canvas.toDataURL('image/jpeg', 0.5));
                 } else {
                     reject(new Error("Canvas context failed"));
                 }
@@ -506,9 +507,10 @@ const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
           const filtered = pending.filter((u: UserType) => u.id !== updatedUser.id);
           filtered.push(updatedUser);
           localStorage.setItem(STORAGE_KEY_PENDING_DRIVERS, JSON.stringify(filtered));
+          alert("Documents Saved Successfully!");
       } catch (e) {
           console.error("Failed to persist driver", e);
-          alert("Storage Limit Warning: Your documents might not be saved persistently for the admin due to browser storage limits. In a real app, these would upload to a cloud server.");
+          alert("Storage Limit Warning: Your browser storage is full. Please try again with smaller images.");
       }
       
       onComplete();
@@ -743,9 +745,12 @@ const DocumentReviewModal = ({ isOpen, onClose, driver, onVerified, t }: any) =>
              fileUrl = driver.documentsData[type];
         } else {
              // Fallbacks for demo data users
-            if (type === 'photo') fileUrl = driver.avatar;
-            else if (type === 'license') fileUrl = "https://placehold.co/600x400/e2e8f0/64748b?text=License+Document";
-            else if (type === 'insurance') fileUrl = "https://placehold.co/600x400/e2e8f0/64748b?text=Insurance+Document";
+             if (type === 'photo' && driver.avatar && !driver.avatar.includes('pravatar')) fileUrl = driver.avatar;
+        }
+        
+        if (!fileUrl) {
+            alert("No document found to download.");
+            return;
         }
         
         const link = document.createElement('a');
@@ -765,13 +770,13 @@ const DocumentReviewModal = ({ isOpen, onClose, driver, onVerified, t }: any) =>
             <div className="flex justify-between items-center mb-6 text-white"><h2 className="text-2xl font-bold">{t.reviewDocs}</h2><button onClick={onClose} className="p-2 bg-white/10 rounded-full"><XCircle/></button></div>
             <div className="flex-1 overflow-y-auto space-y-6">
                 {['license', 'insurance', 'photo'].map(type => {
-                     // PRIORITIZE THE REAL DOCUMENT DATA
-                     // Check if documentsData exists and has the key. 
+                     // STRICT MODE: ONLY SHOW REAL UPLOADED DATA
                      const realDocData = driver.documentsData && driver.documentsData[type];
                      
-                     // If real data exists, use it. Otherwise, fallback logic (only for photo, never for license/insurance if empty).
+                     // If real data exists, use it.
                      let imgSrc = realDocData;
                      
+                     // Allow avatar fallback ONLY for photo if it is a real data URI
                      if (!imgSrc && type === 'photo' && driver.avatar && !driver.avatar.includes('pravatar')) {
                          imgSrc = driver.avatar;
                      }
@@ -780,17 +785,22 @@ const DocumentReviewModal = ({ isOpen, onClose, driver, onVerified, t }: any) =>
                          <div key={type} className="bg-white rounded-2xl p-4">
                             <div className="flex justify-between items-center mb-2">
                                 <h3 className="font-bold text-slate-900 flex items-center gap-2 uppercase">{type}</h3>
-                                <button className={`font-bold text-xs flex items-center gap-1 px-3 py-2 rounded-lg transition-colors ${downloaded[type] ? 'bg-green-100 text-green-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`} onClick={() => handleDownload(type)}>
-                                    <Download size={12}/> {downloaded[type] ? 'Downloaded' : 'Download Required'}
-                                </button>
+                                {imgSrc && (
+                                    <button className={`font-bold text-xs flex items-center gap-1 px-3 py-2 rounded-lg transition-colors ${downloaded[type] ? 'bg-green-100 text-green-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`} onClick={() => handleDownload(type)}>
+                                        <Download size={12}/> {downloaded[type] ? 'Downloaded' : 'Download Required'}
+                                    </button>
+                                )}
                             </div>
                             <div className="h-48 bg-slate-100 rounded-xl flex items-center justify-center border-2 border-dashed border-slate-200 overflow-hidden relative">
                                 {imgSrc ? (
                                     <img src={imgSrc} className="h-full w-full object-contain" />
                                 ) : (
-                                    <span className="text-slate-400 text-sm italic">
-                                        {driver.documentsUploaded[type] ? "Loading..." : "No Document Uploaded"}
-                                    </span>
+                                    <div className="flex flex-col items-center justify-center text-slate-400">
+                                        <AlertCircle size={24} className="mb-2 opacity-50"/>
+                                        <span className="text-sm italic font-medium">
+                                            No Document Uploaded
+                                        </span>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -955,7 +965,7 @@ const PostRideView = ({ setView, lang, user, updateUser, onPublish }: any) => {
          price, 
          currency: 'CAD', 
          seatsAvailable: seats, 
-         totalSeats: seats,
+         totalSeats: seats, 
          luggage: { small: 2, medium: 1, large: 0 }, 
          features: { instantBook: true, wifi: true, music: true, pets: false, smoking: false, winterTires: true }, 
          distanceKm: 300, 
@@ -1150,21 +1160,31 @@ export const App = () => {
   const [detailRide, setDetailRide] = useState<Ride | null>(null);
   const [selectedSeats, setSelectedSeats] = useState(1);
   
-  // Admin State
-  const [pendingDrivers, setPendingDrivers] = useState<UserType[]>([]);
+  // Admin State - Initialize directly from localStorage to prevent overwriting
+  const [pendingDrivers, setPendingDrivers] = useState<UserType[]>(() => {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY_PENDING_DRIVERS);
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        console.error("Init drivers error", e);
+        return [];
+    }
+  });
 
   useEffect(() => {
      setAllRides(loadRidesFromStorage());
-     // Generate dummy pending drivers
-     setPendingDrivers([
-        { ...MOCK_USER_TEMPLATE, id: 'd2', firstName: 'James', lastName: 'Bond', driverStatus: 'pending', vehicle: { make: 'Aston Martin', model: 'DB5', year: '1964', color: 'Silver', plate: '007' } }
-     ]);
+     // Only add dummy data if absolutely empty to avoid empty state confusion, but prioritize storage
+     if (pendingDrivers.length === 0) {
+        setPendingDrivers([
+            { ...MOCK_USER_TEMPLATE, id: 'd2', firstName: 'James', lastName: 'Bond', driverStatus: 'pending', vehicle: { make: 'Aston Martin', model: 'DB5', year: '1964', color: 'Silver', plate: '007' } }
+        ]);
+     }
   }, []);
 
   const handleLogin = (loggedInUser: UserType) => {
       setUser(loggedInUser);
       if (loggedInUser.role === 'admin') {
-          // FORCE RELOAD of pending drivers from storage when admin logs in
+          // Refresh from storage on login to ensure we have the absolute latest
           try {
             const stored = localStorage.getItem(STORAGE_KEY_PENDING_DRIVERS);
             if (stored) {
