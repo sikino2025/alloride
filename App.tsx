@@ -368,9 +368,11 @@ const HomeView = ({ setView, setDetailRide, lang, setLang, user, allRides, booke
      return allRides.filter(r => r.arrivalTime.getTime() > now.getTime());
   }, [allRides]);
 
+  // Updated to show history for drivers
   const myRides = useMemo(() => {
      if (user.role === 'driver') {
-        return allRides.filter(r => r.driver.id === user.id);
+        // Show ALL rides for the driver, sorted by date descending (newest first)
+        return allRides.filter(r => r.driver.id === user.id).sort((a,b) => b.departureTime.getTime() - a.departureTime.getTime());
      }
      return [];
   }, [allRides, user]);
@@ -451,11 +453,34 @@ const HomeView = ({ setView, setDetailRide, lang, setLang, user, allRides, booke
       
       {/* Driver View: Your Trips */}
       {!hasSearched && user.role === 'driver' && myRides.length > 0 && (
-         <div className="px-6 mt-8"><Header title="Your Trips" subtitle="Upcoming drives" />
+         <div className="px-6 mt-8"><Header title="Your Trips" subtitle="Upcoming & History" />
             <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4">
-               {myRides.map(ride => (
-                  <div key={ride.id} className="min-w-[280px] bg-slate-900 rounded-3xl p-5 text-white relative overflow-hidden"><div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-2xl -mr-10 -mt-10"></div><div className="relative z-10"><div className="flex justify-between items-start mb-4"><span className="bg-white/10 px-3 py-1 rounded-full text-[10px] font-bold">LIVE</span><span className="text-2xl font-bold">${ride.price}</span></div><div className="space-y-1 mb-4"><div className="font-bold text-lg">{ride.origin.split(',')[0]}</div><div className="w-0.5 h-4 bg-white/20 ml-1"></div><div className="font-bold text-lg text-secondary">{ride.destination.split(',')[0]}</div></div><div className="flex items-center gap-2 text-white/50 text-xs font-medium"><Clock size={12}/> {new Date(ride.departureTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}<span>•</span><User size={12}/> {ride.seatsAvailable} seats left</div></div></div>
-               ))}
+               {myRides.map(ride => {
+                  const isPast = new Date() > ride.arrivalTime;
+                  return (
+                    <div key={ride.id} className={`min-w-[280px] rounded-3xl p-5 text-white relative overflow-hidden border ${isPast ? 'bg-slate-100 border-slate-200' : 'bg-slate-900 border-transparent'}`}>
+                        <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-2xl -mr-10 -mt-10 ${isPast ? 'bg-slate-200' : 'bg-primary/20'}`}></div>
+                        <div className="relative z-10">
+                            <div className="flex justify-between items-start mb-4">
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${isPast ? 'bg-slate-200 text-slate-500' : 'bg-white/10 text-white'}`}>
+                                    {isPast ? 'COMPLETED' : 'LIVE'}
+                                </span>
+                                <span className={`text-2xl font-bold ${isPast ? 'text-slate-900' : 'text-white'}`}>${ride.price}</span>
+                            </div>
+                            <div className="space-y-1 mb-4">
+                                <div className={`font-bold text-lg ${isPast ? 'text-slate-900' : 'text-white'}`}>{ride.origin.split(',')[0]}</div>
+                                <div className={`w-0.5 h-4 ml-1 ${isPast ? 'bg-slate-300' : 'bg-white/20'}`}></div>
+                                <div className={`font-bold text-lg ${isPast ? 'text-slate-500' : 'text-secondary'}`}>{ride.destination.split(',')[0]}</div>
+                            </div>
+                            <div className={`flex items-center gap-2 text-xs font-medium ${isPast ? 'text-slate-400' : 'text-white/50'}`}>
+                                <Clock size={12}/> {new Date(ride.departureTime).toLocaleDateString([], {month:'short', day:'numeric'})}, {new Date(ride.departureTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                <span>•</span>
+                                <User size={12}/> {ride.seatsAvailable} seats
+                            </div>
+                        </div>
+                    </div>
+                  );
+               })}
             </div>
          </div>
       )}
@@ -517,7 +542,12 @@ const PostRideView = ({ setView, lang, user, updateUser, onPublish }: { setView:
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [date, setDate] = useState(() => toLocalISOString(new Date()));
-  const [time, setTime] = useState("");
+  // Default time to 1 hour from now to ensure ride is created in the future
+  const [time, setTime] = useState(() => {
+    const d = new Date();
+    d.setHours(d.getHours() + 1);
+    return d.toTimeString().slice(0, 5); // HH:mm format
+  });
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState(45);
   const [seats, setSeats] = useState(3);
@@ -564,6 +594,10 @@ const PostRideView = ({ setView, lang, user, updateUser, onPublish }: { setView:
 
   const handlePublish = () => {
      const departure = new Date(`${date}T${time || '08:00'}`);
+     if (departure.getTime() < Date.now()) {
+        alert("Please select a future time for your ride.");
+        return;
+     }
      onPublish({ id: `ride-${Date.now()}`, driver: user, origin, destination, stops: [], departureTime: departure, arrivalTime: new Date(departure.getTime() + 10800000), price, currency: 'CAD', seatsAvailable: seats, luggage, features: { instantBook: true, wifi: true, music: true, pets: false, smoking: false, winterTires: true }, distanceKm: 300, description });
      alert("Published! Passengers can now see your trip."); setView('home');
   };
@@ -686,7 +720,7 @@ const RideDetailView = ({ ride, onBack, lang, onBook, initialSeats }: { ride: Ri
       } else {
          setLocationInfo({ 
              address: ride.origin, 
-             uri: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ride.origin)}` 
+             uri: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(ride.origin)}` 
          });
       }
     };
@@ -727,7 +761,24 @@ const RideDetailView = ({ ride, onBack, lang, onBook, initialSeats }: { ride: Ri
             </a>
         )}
       </div>
-      <div className="px-6 relative -top-12">
+      
+      {/* AI Pickup Guide Card - Prominent for passengers */}
+      {locationInfo && locationInfo.address !== ride.origin && (
+          <div className="mx-6 -mt-6 mb-6 relative z-10">
+            <div className="bg-indigo-600 rounded-2xl p-4 text-white shadow-lg shadow-indigo-200 flex items-start gap-3 animate-float">
+                <div className="bg-white/20 p-2 rounded-full">
+                    <MapPin size={24} className="text-white" />
+                </div>
+                <div>
+                    <p className="text-indigo-100 text-xs font-bold uppercase tracking-wider mb-1">Exact Meeting Point (AI Detected)</p>
+                    <p className="font-bold text-lg leading-tight">{locationInfo.address}</p>
+                    <p className="text-indigo-200 text-xs mt-1">Passenger: Please go here for pickup.</p>
+                </div>
+            </div>
+          </div>
+      )}
+
+      <div className="px-6 relative -top-4">
         <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl border border-slate-50">
            <div className="flex justify-between items-start mb-6">
               <div>
@@ -822,11 +873,6 @@ const RideDetailView = ({ ride, onBack, lang, onBook, initialSeats }: { ride: Ri
                 <div className="bg-slate-50 p-4 rounded-2xl">
                     <p className="text-slate-600 text-sm leading-relaxed font-medium">
                         {ride.description}
-                        {locationInfo && locationInfo.address !== ride.origin && (
-                            <span className="block mt-2 text-xs font-bold text-primary flex items-center gap-1">
-                                <MapPin size={12}/> AI Identified Location: {locationInfo.address}
-                            </span>
-                        )}
                     </p>
                 </div>
              </div>
