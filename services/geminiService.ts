@@ -52,12 +52,17 @@ export const calculateAIPrice = async (distance: number, demandLevel: 'low' | 'h
 };
 
 export const resolvePickupLocation = async (description: string, defaultOrigin: string) => {
-  if (!apiKey) return { address: defaultOrigin, uri: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(defaultOrigin)}` };
+  const defaultUri = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(defaultOrigin)}`;
+  
+  if (!apiKey) return { address: defaultOrigin, uri: defaultUri };
 
   try {
     const response = await ai.models.generateContent({
       model: modelId,
-      contents: `Identify the specific physical meeting point or address mentioned in this ride description: "${description}". Return only the specific address or place name. Include city/context if possible. If no specific place is mentioned, return "${defaultOrigin}".`,
+      contents: `Identify the specific physical meeting point or address mentioned in this ride description: "${description}". 
+      Return only the specific address or place name with city context. 
+      Example: If description is "Wait at Tim Hortons", and origin is Montreal, return "Tim Hortons, Montreal, QC".
+      If no specific place is mentioned, return "${defaultOrigin}".`,
       config: {
         tools: [{ googleMaps: {} }],
       },
@@ -65,19 +70,15 @@ export const resolvePickupLocation = async (description: string, defaultOrigin: 
 
     const address = response.text?.trim() || defaultOrigin;
     
-    // Default to a Directions intent
+    // Attempt to extract a Google Maps URI from grounding metadata
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks as any[];
     let uri = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
     
-    // Attempt to extract a Google Maps URI from grounding metadata if available
-    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks as any[];
     if (chunks && chunks.length > 0) {
         for (const chunk of chunks) {
             if (chunk.maps?.uri) {
-                // We prefer the direct URI if it exists, but for navigation 'dir' intent is often better for buttons.
-                // However, if the model returns a specific place ID link, we can use it.
-                // For this use case (Guiding passenger), a search/dir link to the text address is often safer 
-                // than a potentially halluncinated specific place URI, but we trust the grounding.
-                uri = chunk.maps.uri; 
+                // We prefer the grounding URI but ensure it works for navigation
+                uri = chunk.maps.uri;
                 break;
             }
         }
@@ -86,7 +87,7 @@ export const resolvePickupLocation = async (description: string, defaultOrigin: 
     return { address, uri };
   } catch (error) {
     console.error("Location resolution error", error);
-    return { address: defaultOrigin, uri: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(defaultOrigin)}` };
+    return { address: defaultOrigin, uri: defaultUri };
   }
 };
 
