@@ -13,25 +13,24 @@ export interface User {
   firstName: string;
   lastName: string;
   email: string;
-  phone: string; // Added phone number
+  phone: string; 
   role: UserRole;
   avatar: string; 
   isVerified: boolean; 
-  driverStatus?: DriverStatus; // Track approval status
+  driverStatus?: DriverStatus; 
   documentsUploaded: {
     license: boolean;
     insurance: boolean;
     photo: boolean;
   };
-  // URLs for admin verification
-  documentUrls?: {
+  // Store actual file data (Base64) for downloads
+  documentsData?: {
     license?: string;
     insurance?: string;
-    photo?: string;
+    photo?: string; 
   };
   rating: number;
   totalRides: number;
-  // Driver specific
   vehicle?: {
     make: string;
     model: string;
