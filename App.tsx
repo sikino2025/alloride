@@ -15,13 +15,47 @@ const toLocalISOString = (date: Date) => {
   return adjustedDate.toISOString().split('T')[0];
 };
 
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-  });
+// COMPRESSION UTILITY: Resize images to max 800px to ensure they fit in LocalStorage
+const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                const MAX_HEIGHT = 800;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.drawImage(img, 0, 0, width, height);
+                    // Compress to JPEG 0.7 quality
+                    resolve(canvas.toDataURL('image/jpeg', 0.7));
+                } else {
+                    reject(new Error("Canvas context failed"));
+                }
+            };
+            img.onerror = (error) => reject(error);
+        };
+        reader.onerror = (error) => reject(error);
+    });
 };
 
 const getDisplayDate = (dateStr: string, t: any, lang: string) => {
@@ -166,7 +200,7 @@ const generateMockRides = (): Ride[] => {
         currency: 'CAD', 
         seatsAvailable: seatsAvailable, 
         totalSeats: totalSeats,
-        luggage: { small: 2, medium: 1, large: 0 },
+        luggage: { small: 2, medium: 1, large: 0 }, 
         features: { instantBook: Math.random() > 0.5, wifi: Math.random() > 0.5, music: true, pets: Math.random() > 0.8, smoking: false, winterTires: true }, 
         distanceKm: 300, 
         description: `Leaving exactly from ${origin.spot}. Dropping off at ${dest.spot}. Flexible with luggage.`
@@ -430,7 +464,8 @@ const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
       const file = e.target.files?.[0];
       if(file) {
           try {
-              const base64 = await fileToBase64(file);
+              // Use compressImage instead of fileToBase64 to avoid quota limits
+              const base64 = await compressImage(file);
               if (field === 'photo') {
                   setPhoto(base64);
               } else {
@@ -438,6 +473,7 @@ const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
               }
           } catch(err) {
               console.error("Error reading file", err);
+              alert("Failed to process image. Please try a smaller file.");
           }
       }
   };
@@ -456,8 +492,8 @@ const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
               insurance: docs.insurance, 
               photo: photo 
           },
-          driverStatus: 'approved', // Auto-approve for demo
-          isVerified: true
+          driverStatus: 'pending', // Set to pending so Admin can approve
+          isVerified: false
       };
       
       updateUser(updatedUser);
@@ -472,6 +508,7 @@ const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
           localStorage.setItem(STORAGE_KEY_PENDING_DRIVERS, JSON.stringify(filtered));
       } catch (e) {
           console.error("Failed to persist driver", e);
+          alert("Storage Limit Warning: Your documents might not be saved persistently for the admin due to browser storage limits. In a real app, these would upload to a cloud server.");
       }
       
       onComplete();
@@ -728,14 +765,16 @@ const DocumentReviewModal = ({ isOpen, onClose, driver, onVerified, t }: any) =>
             <div className="flex justify-between items-center mb-6 text-white"><h2 className="text-2xl font-bold">{t.reviewDocs}</h2><button onClick={onClose} className="p-2 bg-white/10 rounded-full"><XCircle/></button></div>
             <div className="flex-1 overflow-y-auto space-y-6">
                 {['license', 'insurance', 'photo'].map(type => {
+                     // PRIORITIZE THE REAL DOCUMENT DATA
                      // Check if documentsData exists and has the key. 
-                     // IMPORTANT: Ensure we check if the string is not empty.
-                     const hasRealData = driver.documentsData && driver.documentsData[type] && driver.documentsData[type].length > 100;
+                     const realDocData = driver.documentsData && driver.documentsData[type];
                      
-                     // If real data exists, use it. Otherwise, fallback logic (only for photo).
-                     const imgSrc = hasRealData 
-                        ? driver.documentsData[type] 
-                        : (type === 'photo' && driver.avatar && !driver.avatar.includes('pravatar') ? driver.avatar : null);
+                     // If real data exists, use it. Otherwise, fallback logic (only for photo, never for license/insurance if empty).
+                     let imgSrc = realDocData;
+                     
+                     if (!imgSrc && type === 'photo' && driver.avatar && !driver.avatar.includes('pravatar')) {
+                         imgSrc = driver.avatar;
+                     }
                      
                      return (
                          <div key={type} className="bg-white rounded-2xl p-4">
@@ -749,7 +788,9 @@ const DocumentReviewModal = ({ isOpen, onClose, driver, onVerified, t }: any) =>
                                 {imgSrc ? (
                                     <img src={imgSrc} className="h-full w-full object-contain" />
                                 ) : (
-                                    <span className="text-slate-400 text-sm">Preview Unavailable</span>
+                                    <span className="text-slate-400 text-sm italic">
+                                        {driver.documentsUploaded[type] ? "Loading..." : "No Document Uploaded"}
+                                    </span>
                                 )}
                             </div>
                         </div>
