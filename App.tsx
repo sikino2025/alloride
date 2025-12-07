@@ -89,9 +89,7 @@ const generateMockRides = (): Ride[] => {
   const now = new Date();
   
   for (let i = 0; i < 50; i++) {
-     // Pick a random city
      const originCity = getRandom(Object.keys(MEETING_POINTS));
-     // Pick a random spot in that city if available, else just city name
      const originSpot = MEETING_POINTS[originCity] ? getRandom(MEETING_POINTS[originCity]) : { name: "City Center", address: originCity };
      
      let destCity = getRandom(Object.keys(MEETING_POINTS));
@@ -103,16 +101,14 @@ const generateMockRides = (): Ride[] => {
      date.setHours(Math.floor(Math.random() * 14) + 6, 0, 0, 0);
      const driver = getRandom(DRIVERS);
      
-     // Construct the "Amigo style" location string: "City - Spot Name"
-     // This ensures search works (city name present) and details are visible
      const originStr = `${originCity.split(',')[0]} - ${originSpot.name}`;
      const destStr = `${destCity.split(',')[0]} - ${destSpot.name}`;
 
      rides.push({
         id: `r${idCounter++}`,
         driver: { ...MOCK_USER_TEMPLATE, firstName: driver.name.split(' ')[0], lastName: driver.name.split(' ')[1], avatar: driver.avatar, rating: driver.rating, totalRides: driver.rides, isVerified: driver.verified, role: 'driver', vehicle: { make: ["Toyota", "Honda", "Tesla", "Hyundai"][Math.floor(Math.random()*4)], model: ["RAV4", "Civic", "Model 3", "Tucson"][Math.floor(Math.random()*4)], year: "2022", color: ["White", "Black", "Grey", "Blue"][Math.floor(Math.random()*4)], plate: `${String.fromCharCode(65+Math.random()*26)}${Math.floor(Math.random()*999)} ${String.fromCharCode(65+Math.random()*26)}${String.fromCharCode(65+Math.random()*26)}` } },
-        origin: originStr, // Visual string
-        destination: destStr, // Visual string
+        origin: originStr,
+        destination: destStr,
         stops: [], 
         departureTime: new Date(date), 
         arrivalTime: new Date(date.getTime() + 3600000 * (Math.random() * 4 + 1)), 
@@ -122,9 +118,6 @@ const generateMockRides = (): Ride[] => {
         luggage: { small: 2, medium: 1, large: 0 },
         features: { instantBook: Math.random() > 0.5, wifi: Math.random() > 0.5, music: true, pets: Math.random() > 0.8, smoking: false, winterTires: true }, 
         distanceKm: Math.floor(Math.random() * 400) + 50, 
-        // Important: We embed the precise addresses in the description for the detail view to parse if needed, 
-        // though the visual string usually carries enough info for humans.
-        // But for the "Map Pin" feature, we'll try to use the part after the hyphen.
         description: `Leaving exactly from ${originSpot.name}. Dropping off at ${destSpot.name}. Flexible with luggage.`
      });
   }
@@ -139,7 +132,6 @@ const loadRidesFromStorage = (): Ride[] => {
     const saved = localStorage.getItem(STORAGE_KEY_RIDES);
     if (saved) {
       const parsed = JSON.parse(saved);
-      // We must map strings back to Date objects
       return parsed.map((r: any) => ({
         ...r,
         departureTime: new Date(r.departureTime),
@@ -160,11 +152,9 @@ const saveRidesToStorage = (rides: Ride[]) => {
   }
 };
 
-// --- Helpers ---
 const getAddressFromLocationString = (locStr: string): string | null => {
   if (!locStr.includes(' - ')) return null;
   const [cityNameShort, spotName] = locStr.split(' - ');
-  // Find full city key
   const cityKey = Object.keys(MEETING_POINTS).find(k => k.startsWith(cityNameShort));
   if (cityKey && MEETING_POINTS[cityKey]) {
     const spot = MEETING_POINTS[cityKey].find(p => p.name === spotName);
@@ -209,7 +199,6 @@ const RideCard: React.FC<{ ride: Ride; onClick: () => void; t: any }> = ({ ride,
   
   const isNew = ride.id.toString().startsWith('ride-');
 
-  // Split logic to clean up the card display if using the new "City - Spot" format
   const formatLocation = (loc: string) => {
     if (loc.includes(' - ')) {
         const [city, spot] = loc.split(' - ');
@@ -223,10 +212,8 @@ const RideCard: React.FC<{ ride: Ride; onClick: () => void; t: any }> = ({ ride,
 
   return (
     <div onClick={onClick} className="bg-white rounded-3xl p-5 shadow-card mb-5 active:scale-[0.99] transition-transform cursor-pointer border border-slate-100 relative overflow-hidden group">
-      {/* Decorative gradient blob */}
       <div className="absolute -right-10 -top-10 w-32 h-32 bg-indigo-50 rounded-full blur-2xl group-hover:bg-indigo-100 transition-colors"></div>
       
-      {/* Date Tag */}
       <div className="flex justify-between items-center mb-4 relative z-10">
         <div className="flex items-center gap-2">
             <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">{rideDate}</span>
@@ -281,8 +268,6 @@ const RideCard: React.FC<{ ride: Ride; onClick: () => void; t: any }> = ({ ride,
   );
 };
 
-// --- Views (Specific Updates) ---
-
 const RateModal = ({ isOpen, onClose, driverName }: any) => {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
@@ -310,18 +295,36 @@ const AuthView = ({ onLogin, lang, setLang }: any) => {
   const [isLogin, setIsLogin] = useState(true);
   const [role, setRole] = useState<UserRole>('passenger');
   const [email, setEmail] = useState('alex@example.com');
+  const [password, setPassword] = useState('');
+  
+  // Mandatory fields for Sign Up
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
   
   const handleAuth = (e: React.FormEvent) => {
       e.preventDefault();
-      // Mock login
+      
+      // Basic validation for sign up
+      if (!isLogin) {
+          if (!firstName || !lastName || !phone) {
+              alert("Please fill in all mandatory fields: Name and Phone.");
+              return;
+          }
+      }
+
       const mockUser: UserType = {
           ...MOCK_USER_TEMPLATE,
           id: `u-${Date.now()}`,
           role: role,
-          firstName: isLogin ? 'Alex' : 'New User',
+          firstName: isLogin ? 'Alex' : firstName,
+          lastName: isLogin ? 'Rivera' : lastName,
+          phone: isLogin ? '514-555-0199' : phone,
+          email: email,
           driverStatus: role === 'driver' ? 'new' : undefined 
       };
-      if (role === 'driver') {
+      
+      if (role === 'driver' && !isLogin) {
           mockUser.isVerified = false;
           mockUser.documentsUploaded = { license: false, insurance: false, photo: false };
       }
@@ -341,13 +344,20 @@ const AuthView = ({ onLogin, lang, setLang }: any) => {
              </div>
              <form onSubmit={handleAuth} className="space-y-4">
                 {!isLogin && (
-                   <div className="flex gap-2 mb-4">
-                      <button type="button" onClick={() => setRole('passenger')} className={`flex-1 py-2 rounded-lg border-2 font-bold text-xs ${role === 'passenger' ? 'border-primary bg-primary/20 text-white' : 'border-white/10 text-white/40'}`}>{t.passenger}</button>
-                      <button type="button" onClick={() => setRole('driver')} className={`flex-1 py-2 rounded-lg border-2 font-bold text-xs ${role === 'driver' ? 'border-primary bg-primary/20 text-white' : 'border-white/10 text-white/40'}`}>{t.driver}</button>
-                   </div>
+                   <>
+                       <div className="flex gap-2 mb-4">
+                          <button type="button" onClick={() => setRole('passenger')} className={`flex-1 py-2 rounded-lg border-2 font-bold text-xs ${role === 'passenger' ? 'border-primary bg-primary/20 text-white' : 'border-white/10 text-white/40'}`}>{t.passenger}</button>
+                          <button type="button" onClick={() => setRole('driver')} className={`flex-1 py-2 rounded-lg border-2 font-bold text-xs ${role === 'driver' ? 'border-primary bg-primary/20 text-white' : 'border-white/10 text-white/40'}`}>{t.driver}</button>
+                       </div>
+                       <div className="grid grid-cols-2 gap-3">
+                           <input required type="text" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder={t.firstName} className="w-full bg-black/20 border border-white/10 text-white placeholder-white/40 p-4 rounded-xl outline-none focus:border-white/40 transition-colors font-medium text-sm" />
+                           <input required type="text" value={lastName} onChange={e => setLastName(e.target.value)} placeholder={t.lastName} className="w-full bg-black/20 border border-white/10 text-white placeholder-white/40 p-4 rounded-xl outline-none focus:border-white/40 transition-colors font-medium text-sm" />
+                       </div>
+                       <input required type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder={t.phone} className="w-full bg-black/20 border border-white/10 text-white placeholder-white/40 p-4 rounded-xl outline-none focus:border-white/40 transition-colors font-medium text-sm" />
+                   </>
                 )}
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t.email} className="w-full bg-black/20 border border-white/10 text-white placeholder-white/40 p-4 rounded-xl outline-none focus:border-white/40 transition-colors font-medium" />
-                <input type="password" placeholder={t.password} className="w-full bg-black/20 border border-white/10 text-white placeholder-white/40 p-4 rounded-xl outline-none focus:border-white/40 transition-colors font-medium" />
+                <input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t.email} className="w-full bg-black/20 border border-white/10 text-white placeholder-white/40 p-4 rounded-xl outline-none focus:border-white/40 transition-colors font-medium text-sm" />
+                <input required type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t.password} className="w-full bg-black/20 border border-white/10 text-white placeholder-white/40 p-4 rounded-xl outline-none focus:border-white/40 transition-colors font-medium text-sm" />
                 <Button type="submit" variant="primary" className="w-full mt-4">{isLogin ? t.logIn : t.createAccount}</Button>
              </form>
              <div className="mt-6 text-center">
@@ -364,7 +374,6 @@ const HomeView = ({ setView, setDetailRide, lang, user, allRides, bookedRides, o
   const [searchFrom, setSearchFrom] = useState('');
   const [searchTo, setSearchTo] = useState('');
   
-  // Filter rides
   const filteredRides = allRides.filter((r: Ride) => {
      if (searchFrom && !r.origin.toLowerCase().includes(searchFrom.toLowerCase())) return false;
      if (searchTo && !r.destination.toLowerCase().includes(searchTo.toLowerCase())) return false;
@@ -381,7 +390,7 @@ const HomeView = ({ setView, setDetailRide, lang, user, allRides, bookedRides, o
                        <h1 className="text-3xl font-extrabold">{t.goodMorning}, {user.firstName}</h1>
                        <p className="text-white/60 font-medium">{t.whereTo}</p>
                    </div>
-                   <img src={user.avatar} onClick={() => setView('profile')} className="w-12 h-12 rounded-full border-2 border-white/20 cursor-pointer hover:scale-105 transition-transform" />
+                   <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}+${user.lastName}&background=random`} onClick={() => setView('profile')} className="w-12 h-12 rounded-full border-2 border-white/20 cursor-pointer hover:scale-105 transition-transform" />
                </div>
                <div className="bg-white/10 backdrop-blur-md p-2 rounded-[2rem] border border-white/10 flex flex-col gap-2">
                    <div className="relative">
@@ -398,7 +407,6 @@ const HomeView = ({ setView, setDetailRide, lang, user, allRides, bookedRides, o
        </div>
        
        <div className="px-6 -mt-12 relative z-10">
-           {/* Booked Rides Section */}
            {bookedRides.length > 0 && (
                <div className="mb-8">
                   <h2 className="text-lg font-bold text-slate-900 mb-4 ml-2">Your Tickets</h2>
@@ -527,7 +535,7 @@ const AdminView = ({ setView, pendingDrivers, approveDriver, rejectDriver, liveR
                      {pendingDrivers.map((d: UserType) => (
                          <div key={d.id} className="border border-slate-100 rounded-xl p-4">
                              <div className="flex items-center gap-3 mb-3">
-                                 <img src={d.avatar} className="w-10 h-10 rounded-full" />
+                                 <img src={d.avatar || `https://ui-avatars.com/api/?name=${d.firstName}+${d.lastName}`} className="w-10 h-10 rounded-full" />
                                  <div>
                                      <div className="font-bold text-slate-900">{d.firstName} {d.lastName}</div>
                                      <div className="text-xs text-slate-500">License: {d.vehicle?.plate}</div>
@@ -692,16 +700,64 @@ const PostRideView = ({ setView, lang, user, updateUser, onPublish }: { setView:
     if (user.driverStatus === 'pending') {
        return (<div className="h-full flex flex-col items-center justify-center p-8 bg-slate-50"><div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-glow text-amber-500 animate-pulse"><Clock size={48} /></div><h2 className="text-2xl font-bold text-slate-900 mb-2">{t.reviewInProgress}</h2><p className="text-center text-slate-500 mb-8 max-w-xs">{t.verifyingDocs}</p><Button variant="outline" onClick={() => setView('home')}>{t.backToHome}</Button></div>);
     }
-    // ... Simplified onboarding (copy from previous if needed, but keeping it brief for this response) ...
-    // For now assuming user is approved or we skip to publishing for demo.
-    // If not, revert to full onboarding code.
+    
+    // Strict onboarding sequence: Vehicle -> Photo -> Documents
     return (
         <div className="h-full bg-slate-50 pb-32 overflow-y-auto px-6 pt-12">
            <Header title={t.driverSetup} subtitle={t.letsGetRoad} />
            <div className="flex gap-2 mb-8">{[1, 2, 3].map(step => (<div key={step} className={`h-1.5 flex-1 rounded-full transition-colors ${onboardingStep >= step ? 'bg-primary' : 'bg-slate-200'}`}></div>))}</div>
-           {onboardingStep === 1 && (<form onSubmit={handleVehicleSubmit} className="space-y-4 bg-white p-6 rounded-[2rem] shadow-card"><h3 className="font-bold text-lg mb-4">{t.vehicleDetails}</h3><div className="grid grid-cols-2 gap-4"><input required placeholder="Make" value={vehicle.make} onChange={e => setVehicle({...vehicle, make: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" /><input required placeholder="Model" value={vehicle.model} onChange={e => setVehicle({...vehicle, model: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" /></div><div className="grid grid-cols-2 gap-4"><input required placeholder="Year" type="number" value={vehicle.year} onChange={e => setVehicle({...vehicle, year: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" /><input required placeholder="Color" value={vehicle.color} onChange={e => setVehicle({...vehicle, color: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" /></div><input required placeholder="License Plate" value={vehicle.plate} onChange={e => setVehicle({...vehicle, plate: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm text-center tracking-widest uppercase border border-slate-200" /><Button type="submit" className="mt-4">{t.takeSelfie} (Next)</Button></form>)}
-           {onboardingStep === 2 && (<div className="bg-white p-6 rounded-[2rem] shadow-card text-center"><h3 className="font-bold text-lg mb-6">{t.takeSelfie}</h3><input type="file" ref={photoInputRef} className="hidden" accept="image/*" capture="user" onChange={handlePhotoUpload} /><div onClick={() => photoInputRef.current?.click()} className="w-48 h-48 mx-auto rounded-full bg-slate-50 border-4 border-dashed border-slate-200 flex items-center justify-center cursor-pointer hover:border-primary transition-colors overflow-hidden relative">{profilePhoto ? <img src={profilePhoto} className="w-full h-full object-cover" /> : <div className="text-slate-400"><Camera size={40} className="mx-auto mb-2"/><span className="text-xs font-bold uppercase">{t.tapCamera}</span></div>}</div><div className="mt-8 flex gap-4"><Button variant="secondary" onClick={() => setOnboardingStep(1)}>{t.back}</Button><Button disabled={!profilePhoto} onClick={() => setOnboardingStep(3)}>{t.nextDocs}</Button></div></div>)}
-           {onboardingStep === 3 && (<div className="bg-white p-6 rounded-[2rem] shadow-card"><h3 className="font-bold text-lg mb-6">Upload Documents</h3><input type="file" ref={fileInputRef} className="hidden" accept="image/*,.pdf" onChange={handleFileChange} /><div className="space-y-4">{[{id: 'license', label: t.uploadLicense, icon: CreditCard}, {id: 'insurance', label: t.uploadInsurance, icon: Shield}].map((item) => (<div key={item.id} onClick={() => triggerUpload(item.id)} className={`p-4 rounded-xl flex justify-between items-center cursor-pointer border-2 transition-all ${uploadedDocs[item.id] ? 'border-green-500 bg-green-50' : 'border-slate-100 hover:border-slate-300'}`}><div className="flex items-center gap-4"><div className={`p-2 rounded-lg ${uploadedDocs[item.id] ? 'bg-green-200 text-green-700' : 'bg-slate-100 text-slate-500'}`}><item.icon size={20}/></div><span className="font-bold text-slate-700">{item.label}</span></div>{uploadedDocs[item.id] && <CheckCircle2 size={20} className="text-green-500"/>}</div>))}</div><div className="mt-8 flex gap-4"><Button variant="secondary" onClick={() => setOnboardingStep(2)}>{t.back}</Button><Button disabled={!uploadedDocs.license || !uploadedDocs.insurance} onClick={submitForApproval}>{t.submit}</Button></div></div>)}
+           
+           {onboardingStep === 1 && (
+             <form onSubmit={handleVehicleSubmit} className="space-y-4 bg-white p-6 rounded-[2rem] shadow-card">
+               <h3 className="font-bold text-lg mb-4">{t.vehicleDetails}</h3>
+               <div className="grid grid-cols-2 gap-4">
+                 <input required placeholder="Make" value={vehicle.make} onChange={e => setVehicle({...vehicle, make: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" />
+                 <input required placeholder="Model" value={vehicle.model} onChange={e => setVehicle({...vehicle, model: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" />
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                 <input required placeholder="Year" type="number" value={vehicle.year} onChange={e => setVehicle({...vehicle, year: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" />
+                 <input required placeholder="Color" value={vehicle.color} onChange={e => setVehicle({...vehicle, color: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm" />
+               </div>
+               <input required placeholder="License Plate" value={vehicle.plate} onChange={e => setVehicle({...vehicle, plate: e.target.value})} className="p-4 bg-slate-50 rounded-xl outline-none font-bold text-sm text-center tracking-widest uppercase border border-slate-200" />
+               <Button type="submit" className="mt-4">Next: Photo</Button>
+             </form>
+           )}
+
+           {onboardingStep === 2 && (
+             <div className="bg-white p-6 rounded-[2rem] shadow-card text-center">
+               <h3 className="font-bold text-lg mb-6">{t.takeSelfie}</h3>
+               <input type="file" ref={photoInputRef} className="hidden" accept="image/*" capture="user" onChange={handlePhotoUpload} />
+               <div onClick={() => photoInputRef.current?.click()} className="w-48 h-48 mx-auto rounded-full bg-slate-50 border-4 border-dashed border-slate-200 flex items-center justify-center cursor-pointer hover:border-primary transition-colors overflow-hidden relative">
+                 {profilePhoto ? <img src={profilePhoto} className="w-full h-full object-cover" /> : <div className="text-slate-400"><Camera size={40} className="mx-auto mb-2"/><span className="text-xs font-bold uppercase">{t.tapCamera}</span></div>}
+               </div>
+               <div className="mt-8 flex gap-4">
+                 <Button variant="secondary" onClick={() => setOnboardingStep(1)}>{t.back}</Button>
+                 <Button disabled={!profilePhoto} onClick={() => setOnboardingStep(3)}>{t.nextDocs}</Button>
+               </div>
+             </div>
+           )}
+
+           {onboardingStep === 3 && (
+             <div className="bg-white p-6 rounded-[2rem] shadow-card">
+               <h3 className="font-bold text-lg mb-6">Upload Documents</h3>
+               <input type="file" ref={fileInputRef} className="hidden" accept="image/*,.pdf" onChange={handleFileChange} />
+               <div className="space-y-4">
+                 {[{id: 'license', label: t.uploadLicense, icon: CreditCard}, {id: 'insurance', label: t.uploadInsurance, icon: Shield}].map((item) => (
+                   <div key={item.id} onClick={() => triggerUpload(item.id)} className={`p-4 rounded-xl flex justify-between items-center cursor-pointer border-2 transition-all ${uploadedDocs[item.id] ? 'border-green-500 bg-green-50' : 'border-slate-100 hover:border-slate-300'}`}>
+                     <div className="flex items-center gap-4">
+                       <div className={`p-2 rounded-lg ${uploadedDocs[item.id] ? 'bg-green-200 text-green-700' : 'bg-slate-100 text-slate-500'}`}><item.icon size={20}/></div>
+                       <span className="font-bold text-slate-700">{item.label}</span>
+                     </div>
+                     {uploadedDocs[item.id] && <CheckCircle2 size={20} className="text-green-500"/>}
+                   </div>
+                 ))}
+               </div>
+               <div className="mt-8 flex gap-4">
+                 <Button variant="secondary" onClick={() => setOnboardingStep(2)}>{t.back}</Button>
+                 <Button disabled={!uploadedDocs.license || !uploadedDocs.insurance} onClick={submitForApproval}>{t.submit}</Button>
+               </div>
+             </div>
+           )}
         </div>
     );
   }
