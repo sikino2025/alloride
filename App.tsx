@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Navigation } from './components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from './types';
 import { translations, Language } from './utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Filter, Star, CheckCircle2, Music, Zap, Info, Share2, ScanFace, DollarSign, Upload, FileText, ChevronDown, Snowflake, Dog, Cigarette, Car, Clock, Check, Shield, XCircle, Eye, Lock, Mail, Key, Camera, CreditCard, Briefcase, Phone, Smartphone, ChevronLeft, Globe, MessageSquare, ThumbsUp, Download, Navigation as NavigationIcon, Map, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Filter, Star, CheckCircle2, Music, Zap, Info, Share2, ScanFace, DollarSign, Upload, FileText, ChevronDown, Snowflake, Dog, Cigarette, Car, Clock, Check, Shield, XCircle, Eye, Lock, Mail, Key, Camera, CreditCard, Briefcase, Phone, Smartphone, ChevronLeft, Globe, MessageSquare, ThumbsUp, Download, Navigation as NavigationIcon, Map, Plus, Trash2, AlertCircle, LogOut } from 'lucide-react';
 import { LeaderboardChart } from './components/LeaderboardChart';
 import { generateRideSafetyBrief, optimizeRideDescription, resolvePickupLocation, getStaticMapUrl } from './services/geminiService';
 import { Logo } from './components/Logo';
@@ -313,6 +313,7 @@ const AuthView = ({ onLogin, lang, setLang }: any) => {
           lastName: isLogin ? 'Rivera' : lastName,
           phone: isLogin ? '514-555-0199' : phone,
           email: email,
+          // Only set a mock avatar for login, not for signup
           avatar: isLogin ? 'https://i.pravatar.cc/150?u=alex' : '', 
           driverStatus: role === 'driver' ? 'new' : undefined,
           isVerified: role === 'passenger' 
@@ -378,6 +379,106 @@ const AuthView = ({ onLogin, lang, setLang }: any) => {
           </div>
        </div>
     </div>
+  );
+};
+
+const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
+  const t = translations[lang];
+  const [step, setStep] = useState(1);
+  const [vehicle, setVehicle] = useState({ make: '', model: '', year: '', color: '', plate: '' });
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [docs, setDocs] = useState<any>({ license: null, insurance: null });
+
+  const handleFileChange = async (e: any, field: string) => {
+      const file = e.target.files?.[0];
+      if(file) {
+          const base64 = await fileToBase64(file);
+          if (field === 'photo') setPhoto(base64);
+          else setDocs((prev: any) => ({ ...prev, [field]: base64 }));
+      }
+  };
+
+  const handleNext = () => setStep(s => s + 1);
+
+  const handleSubmit = () => {
+      updateUser({
+          ...user,
+          vehicle,
+          avatar: photo || user.avatar,
+          documentsUploaded: { license: !!docs.license, insurance: !!docs.insurance, photo: !!photo },
+          documentsData: { license: docs.license, insurance: docs.insurance, photo: photo },
+          driverStatus: 'approved', // Auto-approve for demo
+          isVerified: true
+      });
+      onComplete();
+  };
+
+  return (
+      <div className="h-full bg-slate-50 pt-12 px-6 pb-32 overflow-y-auto">
+          <Header title={t.driverSetup} subtitle={`Step ${step}/3`} />
+          <div className="flex gap-2 mb-8">
+              <div className={`h-2 flex-1 rounded-full ${step >= 1 ? 'bg-primary' : 'bg-slate-200'}`}></div>
+              <div className={`h-2 flex-1 rounded-full ${step >= 2 ? 'bg-primary' : 'bg-slate-200'}`}></div>
+              <div className={`h-2 flex-1 rounded-full ${step >= 3 ? 'bg-primary' : 'bg-slate-200'}`}></div>
+          </div>
+
+          {step === 1 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+                  <h3 className="text-xl font-bold text-slate-900 mb-4">{t.vehicleDetails}</h3>
+                  <input placeholder="Make (e.g. Toyota)" value={vehicle.make} onChange={e => setVehicle({...vehicle, make: e.target.value})} className="w-full p-4 bg-white border border-slate-100 rounded-xl font-bold outline-none focus:border-primary" />
+                  <input placeholder="Model (e.g. Camry)" value={vehicle.model} onChange={e => setVehicle({...vehicle, model: e.target.value})} className="w-full p-4 bg-white border border-slate-100 rounded-xl font-bold outline-none focus:border-primary" />
+                  <div className="flex gap-4">
+                       <input placeholder="Year" value={vehicle.year} onChange={e => setVehicle({...vehicle, year: e.target.value})} className="w-full p-4 bg-white border border-slate-100 rounded-xl font-bold outline-none focus:border-primary" />
+                       <input placeholder="Color" value={vehicle.color} onChange={e => setVehicle({...vehicle, color: e.target.value})} className="w-full p-4 bg-white border border-slate-100 rounded-xl font-bold outline-none focus:border-primary" />
+                  </div>
+                  <input placeholder="License Plate" value={vehicle.plate} onChange={e => setVehicle({...vehicle, plate: e.target.value})} className="w-full p-4 bg-white border border-slate-100 rounded-xl font-bold outline-none focus:border-primary" />
+                  <Button onClick={handleNext} disabled={!vehicle.make || !vehicle.model} className="mt-8">Next</Button>
+              </div>
+          )}
+
+          {step === 2 && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+                   <h3 className="text-xl font-bold text-slate-900">{t.takeSelfie}</h3>
+                   <div className="flex justify-center">
+                       <div className="w-40 h-40 bg-slate-200 rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-xl relative">
+                           {photo ? <img src={photo} className="w-full h-full object-cover" /> : <Camera size={64} className="text-slate-400" />}
+                           <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'photo')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                       </div>
+                   </div>
+                   <div className="text-center text-sm text-slate-500 font-medium">Tap the circle to upload a clear photo of your face.</div>
+                   <Button onClick={handleNext} disabled={!photo} className="mt-8">Next</Button>
+              </div>
+          )}
+
+          {step === 3 && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+                  <h3 className="text-xl font-bold text-slate-900">{t.uploadLicense} & {t.uploadInsurance}</h3>
+                  <div className="bg-white p-4 rounded-xl border border-dashed border-slate-300 relative">
+                      <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500"><FileText size={24}/></div>
+                          <div className="flex-1">
+                              <div className="font-bold text-slate-900">{t.uploadLicense}</div>
+                              <div className="text-xs text-slate-500">{docs.license ? "File selected" : "Tap to upload"}</div>
+                          </div>
+                          {docs.license && <CheckCircle2 size={20} className="text-green-500" />}
+                      </div>
+                      <input type="file" onChange={(e) => handleFileChange(e, 'license')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-dashed border-slate-300 relative">
+                      <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-pink-50 rounded-lg flex items-center justify-center text-pink-500"><FileText size={24}/></div>
+                          <div className="flex-1">
+                              <div className="font-bold text-slate-900">{t.uploadInsurance}</div>
+                              <div className="text-xs text-slate-500">{docs.insurance ? "File selected" : "Tap to upload"}</div>
+                          </div>
+                          {docs.insurance && <CheckCircle2 size={20} className="text-green-500" />}
+                      </div>
+                       <input type="file" onChange={(e) => handleFileChange(e, 'insurance')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                  </div>
+                  <Button onClick={handleSubmit} disabled={!docs.license || !docs.insurance} className="mt-8">{t.submit}</Button>
+              </div>
+          )}
+      </div>
   );
 };
 
@@ -644,11 +745,6 @@ const LocationSelector = ({ label, prov, setProv, city, setCity, spot, setSpot, 
 
 const PostRideView = ({ setView, lang, user, updateUser, onPublish }: any) => {
   const t = translations[lang];
-  const [onboardingStep, setOnboardingStep] = useState(1);
-  const [vehicle, setVehicle] = useState({ make: '', model: '', year: '', color: '', plate: '' });
-  const [uploadedDocs, setUploadedDocs] = useState<any>({ license: false, insurance: false, photo: false });
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
-  
   const [originProv, setOriginProv] = useState("QC");
   const [originCity, setOriginCity] = useState("");
   const [originSpot, setOriginSpot] = useState("");
@@ -681,26 +777,6 @@ const PostRideView = ({ setView, lang, user, updateUser, onPublish }: any) => {
      setView('home');
   };
 
-  if (user.driverStatus === 'new' || !user.isVerified) {
-      return (
-        <div className="h-full bg-slate-50 pb-32 overflow-y-auto px-6 pt-12">
-           <Header title={t.driverSetup} subtitle={t.letsGetRoad} />
-           {onboardingStep === 1 ? (
-             <div className="bg-white p-6 rounded-[2rem] shadow-card space-y-4">
-                <input placeholder="Make" value={vehicle.make} onChange={e => setVehicle({...vehicle, make: e.target.value})} className="w-full p-4 bg-slate-50 rounded-xl font-bold" />
-                <input placeholder="Model" value={vehicle.model} onChange={e => setVehicle({...vehicle, model: e.target.value})} className="w-full p-4 bg-slate-50 rounded-xl font-bold" />
-                <Button onClick={() => setOnboardingStep(2)}>{t.nextDocs}</Button>
-             </div>
-           ) : (
-              <div className="bg-white p-6 rounded-[2rem] shadow-card text-center">
-                 <h3 className="font-bold mb-4">You're all set! (Simulated)</h3>
-                 <Button onClick={() => updateUser({...user, isVerified: true, driverStatus: 'approved'})}>Finish Verification</Button>
-              </div>
-           )}
-        </div>
-      );
-  }
-
   return (
     <div className="h-full bg-slate-50 pb-32 overflow-y-auto px-6 pt-12">
         <Header title={t.postRide} />
@@ -731,7 +807,6 @@ const RideDetailView = ({ ride, onBack, onBook, onCancelBooking, onDeleteRide, u
   const isPast = new Date(ride.arrivalTime).getTime() < Date.now();
   const mapUrl = getStaticMapUrl(ride.origin);
   
-  // Logic for cancellation availability
   const canCancelBooking = useMemo(() => {
      if (!isBooked || isPast) return false;
      const hoursUntilDeparture = (new Date(ride.departureTime).getTime() - Date.now()) / (1000 * 60 * 60);
@@ -740,7 +815,6 @@ const RideDetailView = ({ ride, onBack, onBook, onCancelBooking, onDeleteRide, u
 
   const canDeleteRide = useMemo(() => {
      if (!isDriver || isPast) return false;
-     // Only delete if NO bookings (full seats available)
      return ride.seatsAvailable === ride.totalSeats;
   }, [ride, isDriver, isPast]);
 
@@ -846,13 +920,19 @@ const SearchView = ({ setView, lang }: any) => {
     return <div className="pt-20 px-6"><Header title={t.search} /><p className="text-slate-400 text-center mt-10">Advanced Search Coming Soon...</p></div>
 };
 
-const ProfileView = ({ user, lang }: any) => {
+const ProfileView = ({ user, lang, onLogout }: any) => {
     const t = translations[lang];
     return (
-        <div className="pt-20 px-6">
+        <div className="pt-20 px-6 pb-32">
             <Header title={t.profile} />
             <div className="bg-white p-6 rounded-[2rem] shadow-card text-center mb-6">
-                <img src={user.avatar} className="w-24 h-24 rounded-full mx-auto mb-4 object-cover" />
+                {user.avatar ? (
+                    <img src={user.avatar} className="w-24 h-24 rounded-full mx-auto mb-4 object-cover" />
+                ) : (
+                    <div className="w-24 h-24 rounded-full mx-auto mb-4 bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-3xl">
+                        {user.firstName[0]}{user.lastName[0]}
+                    </div>
+                )}
                 <h2 className="text-xl font-bold">{user.firstName} {user.lastName}</h2>
                 <div className="text-slate-400 text-sm font-bold mb-4">{user.email}</div>
                 <div className="flex justify-center gap-2 mb-4">
@@ -860,6 +940,9 @@ const ProfileView = ({ user, lang }: any) => {
                     <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold capitalize">{user.role}</span>
                 </div>
             </div>
+            <Button variant="danger" onClick={onLogout} className="mt-8">
+                <LogOut size={20} /> {t.signOut}
+            </Button>
         </div>
     );
 };
@@ -893,12 +976,15 @@ export const App = () => {
       setView(loggedInUser.role === 'admin' ? 'admin' : 'home');
   };
 
+  const handleLogout = () => {
+      setUser(null);
+      setView('auth');
+  };
+
   const handleBook = () => {
       if (!detailRide || !user) return;
-      // 1. Add to user booked list
       const booking = { ...detailRide, bookedSeats: selectedSeats };
       setBookedRides([...bookedRides, booking]);
-      // 2. Update global ride availability
       const updatedRides = allRides.map(r => r.id === detailRide.id ? { ...r, seatsAvailable: r.seatsAvailable - selectedSeats } : r);
       setAllRides(updatedRides);
       saveRidesToStorage(updatedRides);
@@ -908,9 +994,7 @@ export const App = () => {
 
   const handleCancelBooking = () => {
       if (!detailRide || !user) return;
-      // 1. Remove from booked list
       setBookedRides(bookedRides.filter(r => r.id !== detailRide.id));
-      // 2. Restore seats
       const seatsToRestore = bookedRides.find(r => r.id === detailRide.id)?.bookedSeats || 1;
       const updatedRides = allRides.map(r => r.id === detailRide.id ? { ...r, seatsAvailable: r.seatsAvailable + seatsToRestore } : r);
       setAllRides(updatedRides);
@@ -934,7 +1018,6 @@ export const App = () => {
       saveRidesToStorage(updated);
   };
   
-  // Admin Actions
   const approveDriver = (id: string) => {
       setPendingDrivers(pendingDrivers.filter(d => d.id !== id));
       alert("Driver Approved");
@@ -943,6 +1026,10 @@ export const App = () => {
   if (view === 'auth') return <AuthView onLogin={handleLogin} lang={lang} setLang={setLang} />;
   if (!user) return null;
 
+  if (user.role === 'driver' && user.driverStatus === 'new') {
+      return <DriverOnboarding user={user} updateUser={setUser} onComplete={() => setView('home')} lang={lang} />;
+  }
+
   return (
     <div className="h-full bg-slate-50 text-slate-900 font-sans">
         {view === 'home' && <HomeView setView={setView} setDetailRide={setDetailRide} lang={lang} user={user} allRides={allRides} bookedRides={bookedRides} setSelectedSeats={setSelectedSeats} />}
@@ -950,7 +1037,7 @@ export const App = () => {
         {view === 'ride-detail' && detailRide && <RideDetailView ride={detailRide} onBack={() => setView('home')} onBook={handleBook} onCancelBooking={handleCancelBooking} onDeleteRide={handleDeleteRide} user={user} selectedSeats={selectedSeats} setSelectedSeats={setSelectedSeats} lang={lang} />}
         {view === 'search' && <SearchView setView={setView} lang={lang} />}
         {view === 'wallet' && <WalletView lang={lang} />}
-        {view === 'profile' && <ProfileView user={user} lang={lang} />}
+        {view === 'profile' && <ProfileView user={user} lang={lang} onLogout={handleLogout} />}
         {view === 'leaderboard' && <LeaderboardView lang={lang} />}
         {view === 'admin' && <AdminView setView={setView} pendingDrivers={pendingDrivers} approveDriver={approveDriver} rejectDriver={() => {}} liveRoutes={allRides} lang={lang} />}
         {view === 'legal' && <LegalView onBack={() => setView('home')} lang={lang} />}
