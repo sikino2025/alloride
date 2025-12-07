@@ -51,6 +51,8 @@ export interface Ride {
   price: number;
   currency: string;
   seatsAvailable: number;
+  totalSeats: number; // Added to check if ride is empty (for driver cancellation)
+  bookedSeats?: number; // Optional, used in bookedRides list
   features: {
     instantBook: boolean;
     wifi: boolean;
