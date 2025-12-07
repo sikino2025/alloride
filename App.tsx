@@ -44,42 +44,70 @@ const PROVINCES = [
     { code: "BC", name: "British Columbia" },
     { code: "AB", name: "Alberta" },
     { code: "MB", name: "Manitoba" },
-    { code: "NB", name: "New Brunswick" },
-    { code: "NL", name: "Newfoundland and Labrador" },
-    { code: "NS", name: "Nova Scotia" },
-    { code: "PE", name: "Prince Edward Island" },
     { code: "SK", name: "Saskatchewan" },
+    { code: "NS", name: "Nova Scotia" },
+    { code: "NB", name: "New Brunswick" },
+    { code: "PE", name: "Prince Edward Island" },
+    { code: "NL", name: "Newfoundland and Labrador" },
+    { code: "YT", name: "Yukon" },
     { code: "NT", name: "Northwest Territories" },
-    { code: "NU", name: "Nunavut" },
-    { code: "YT", name: "Yukon" }
+    { code: "NU", name: "Nunavut" }
 ];
 
+// Expanded City and Spot Data for Canada
 const CITIES_AND_SPOTS: Record<string, Record<string, string[]>> = {
   "QC": {
-    "Montréal": ["Berri-UQAM Metro", "Namur Metro", "Radisson Metro", "Fairview Pointe-Claire", "Côte-Vertu Metro", "Longueuil Metro", "Centre-ville - Carré Dorchester"],
-    "Québec": ["Terminus Sainte-Foy", "Place Laurier", "Gare du Palais", "Université Laval"],
+    "Montréal": ["Berri-UQAM Metro", "Namur Metro", "Radisson Metro", "Fairview Pointe-Claire", "Côte-Vertu Metro", "Longueuil Metro", "Centre-ville - Carré Dorchester", "Trudeau Airport (YUL)"],
+    "Québec": ["Terminus Sainte-Foy", "Place Laurier", "Gare du Palais", "Université Laval", "Les Galeries de la Capitale"],
     "Sherbrooke": ["Carrefour de l'Estrie", "Université de Sherbrooke", "Terminus Sherbrooke"],
     "Trois-Rivières": ["Centre Les Rivières", "Terminus Trois-Rivières", "UQTR"],
     "Gatineau": ["Les Promenades Gatineau", "Place du Portage", "Cegep de l'Outaouais"],
     "Laval": ["Métro Montmorency", "Carrefour Laval"],
-    "Drummondville": ["Promenades Drummondville"],
-    "Rimouski": ["Carrefour Rimouski"]
   },
   "ON": {
-    "Toronto": ["Union Station", "Yorkdale Mall", "Scarborough Town Centre", "Pearson Airport (YYZ)", "Don Mills Station"],
-    "Ottawa": ["Rideau Centre", "Bayshore Shopping Centre", "St. Laurent Centre", "Tunney's Pasture", "Place d'Orléans"],
+    "Toronto": ["Union Station", "Yorkdale Mall", "Scarborough Town Centre", "Pearson Airport (YYZ)", "Don Mills Station", "Finch Station"],
+    "Ottawa": ["Rideau Centre", "Bayshore Shopping Centre", "St. Laurent Centre", "Tunney's Pasture", "Place d'Orléans", "Ottawa Train Station"],
     "Mississauga": ["Square One", "Port Credit GO", "Dixie Outlet Mall"],
     "London": ["Western University", "Masonville Place", "White Oaks Mall"],
     "Kingston": ["Queen's University", "Cataraqui Centre", "Kingston Bus Terminal"],
+    "Hamilton": ["McMaster University", "Hamilton GO Centre", "Lime Ridge Mall"],
+    "Windsor": ["University of Windsor", "Devonshire Mall"]
   },
   "BC": {
-    "Vancouver": ["Pacific Central Station", "Waterfront Station", "UBC Bus Loop", "Metrotown", "YVR Airport"],
-    "Victoria": ["Mayfair Shopping Centre", "UVic Bus Loop", "Downtown Victoria"],
+    "Vancouver": ["Pacific Central Station", "Waterfront Station", "UBC Bus Loop", "Metrotown", "YVR Airport", "Tsawwassen Ferry Terminal"],
+    "Victoria": ["Mayfair Shopping Centre", "UVic Bus Loop", "Downtown Victoria", "Swartz Bay Ferry"],
     "Kelowna": ["Orchard Park Mall", "UBCO Exchange"],
+    "Kamloops": ["Aberdeen Mall", "TRU Exchange"],
+    "Whistler": ["Gateway Loop", "Creekside"]
   },
   "AB": {
-    "Calgary": ["Calgary Tower", "Chinook Centre", "University of Calgary", "Brentwood Station"],
-    "Edmonton": ["West Edmonton Mall", "Southgate Centre", "University of Alberta"],
+    "Calgary": ["Calgary Tower", "Chinook Centre", "University of Calgary", "Brentwood Station", "YYC Airport"],
+    "Edmonton": ["West Edmonton Mall", "Southgate Centre", "University of Alberta", "Downtown Library"],
+    "Red Deer": ["Bower Place", "Red Deer College"],
+    "Banff": ["Banff Train Station", "Downtown"]
+  },
+  "MB": {
+    "Winnipeg": ["Polo Park", "University of Manitoba", "St. Vital Centre", "YWG Airport"],
+    "Brandon": ["Shoppers Mall", "Brandon University"]
+  },
+  "SK": {
+    "Saskatoon": ["Midtown Plaza", "University of Saskatchewan", "Lawson Heights"],
+    "Regina": ["Cornwall Centre", "University of Regina", "Southland Mall"]
+  },
+  "NS": {
+    "Halifax": ["Halifax Shopping Centre", "Dalhousie University", "Scotia Square", "Dartmouth Crossing"],
+    "Sydney": ["Mayflower Mall", "CBU"]
+  },
+  "NB": {
+    "Moncton": ["Champlain Place", "Université de Moncton"],
+    "Fredericton": ["Regent Mall", "UNB"],
+    "Saint John": ["McAllister Place", "Uptown"]
+  },
+  "PE": {
+    "Charlottetown": ["Confederation Centre", "UPEI", "Charlottetown Mall"]
+  },
+  "NL": {
+    "St. John's": ["Avalon Mall", "MUN", "Downtown"]
   }
 };
 
@@ -298,6 +326,13 @@ const AuthView = ({ onLogin, lang, setLang }: any) => {
   
   const handleAuth = (e: React.FormEvent) => {
       e.preventDefault();
+      
+      // Admin bypass for demo
+      if (email === 'admin@alloride.com' && password === 'admin') {
+          onLogin({ ...MOCK_USER_TEMPLATE, id: 'admin', role: 'admin', firstName: 'Admin', lastName: 'User' });
+          return;
+      }
+
       if (!isLogin) {
         if (!firstName.trim()) { alert(`${t.firstName} is required.`); return; }
         if (!lastName.trim()) { alert(`${t.lastName} is required.`); return; }
@@ -322,6 +357,7 @@ const AuthView = ({ onLogin, lang, setLang }: any) => {
       if (role === 'driver') {
           mockUser.isVerified = false;
           mockUser.documentsUploaded = { license: false, insurance: false, photo: false };
+          mockUser.documentsData = { license: '', insurance: '', photo: '' };
       }
       onLogin(mockUser);
   };
@@ -392,24 +428,38 @@ const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
   const handleFileChange = async (e: any, field: string) => {
       const file = e.target.files?.[0];
       if(file) {
-          const base64 = await fileToBase64(file);
-          if (field === 'photo') setPhoto(base64);
-          else setDocs((prev: any) => ({ ...prev, [field]: base64 }));
+          try {
+              const base64 = await fileToBase64(file);
+              if (field === 'photo') {
+                  setPhoto(base64);
+              } else {
+                  setDocs((prev: any) => ({ ...prev, [field]: base64 }));
+              }
+          } catch(err) {
+              console.error("Error reading file", err);
+          }
       }
   };
 
   const handleNext = () => setStep(s => s + 1);
 
   const handleSubmit = () => {
-      updateUser({
+      // Create the updated user object with actual base64 data
+      const updatedUser = {
           ...user,
           vehicle,
-          avatar: photo || user.avatar,
+          avatar: photo || user.avatar, // Set the profile avatar to the uploaded selfie
           documentsUploaded: { license: !!docs.license, insurance: !!docs.insurance, photo: !!photo },
-          documentsData: { license: docs.license, insurance: docs.insurance, photo: photo },
+          documentsData: { 
+              license: docs.license, 
+              insurance: docs.insurance, 
+              photo: photo 
+          },
           driverStatus: 'approved', // Auto-approve for demo
           isVerified: true
-      });
+      };
+      
+      updateUser(updatedUser);
       onComplete();
   };
 
@@ -490,8 +540,11 @@ const HomeView = ({ setView, setDetailRide, lang, user, allRides, bookedRides, o
   
   const now = new Date().getTime();
 
+  // IMPORTANT: Filter logic for Passenger Dashboard (Find a Ride)
+  // Logic: Show rides where arrival time is in the future.
   const filteredSearchRides = useMemo(() => {
      return allRides.filter((r: Ride) => {
+        // If trip is completed (arrival time < now), do not show in search
         if (r.arrivalTime.getTime() < now) return false;
         
         const clean = (s: string) => s.toLowerCase();
@@ -629,34 +682,58 @@ const DocumentReviewModal = ({ isOpen, onClose, driver, onVerified, t }: any) =>
     const [downloaded, setDownloaded] = useState<Record<string, boolean>>({ license: false, insurance: false, photo: false });
     useEffect(() => { setDownloaded({ license: false, insurance: false, photo: false }); }, [driver?.id, isOpen]);
     if (!isOpen || !driver) return null;
+    
     const handleDownload = (type: string) => {
         let fileUrl = '';
         let fileName = `${driver.firstName}_${driver.lastName}_${type}.jpg`;
-        if (driver.documentsData && driver.documentsData[type]) fileUrl = driver.documentsData[type];
-        else {
+        
+        // Use the actual base64 data if available
+        if (driver.documentsData && driver.documentsData[type]) {
+             fileUrl = driver.documentsData[type];
+        } else {
+             // Fallbacks for demo data users
             if (type === 'photo') fileUrl = driver.avatar;
             else if (type === 'license') fileUrl = "https://placehold.co/600x400/e2e8f0/64748b?text=License+Document";
             else if (type === 'insurance') fileUrl = "https://placehold.co/600x400/e2e8f0/64748b?text=Insurance+Document";
         }
+        
         const link = document.createElement('a');
         link.href = fileUrl;
-        link.download = fileName; link.target = '_blank'; 
+        link.download = fileName; 
+        link.target = '_blank'; 
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         setDownloaded(prev => ({ ...prev, [type]: true }));
     };
+
     const allDownloaded = downloaded.license && downloaded.insurance && downloaded.photo;
+    
     return (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex flex-col p-6 animate-in fade-in duration-200">
             <div className="flex justify-between items-center mb-6 text-white"><h2 className="text-2xl font-bold">{t.reviewDocs}</h2><button onClick={onClose} className="p-2 bg-white/10 rounded-full"><XCircle/></button></div>
             <div className="flex-1 overflow-y-auto space-y-6">
-                {['license', 'insurance', 'photo'].map(type => (
-                     <div key={type} className="bg-white rounded-2xl p-4">
-                        <div className="flex justify-between items-center mb-2"><h3 className="font-bold text-slate-900 flex items-center gap-2 uppercase">{type}</h3><button className={`font-bold text-xs flex items-center gap-1 px-3 py-2 rounded-lg transition-colors ${downloaded[type] ? 'bg-green-100 text-green-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`} onClick={() => handleDownload(type)}><Download size={12}/> {downloaded[type] ? 'Downloaded' : 'Download Required'}</button></div>
-                        <div className="h-48 bg-slate-100 rounded-xl flex items-center justify-center border-2 border-dashed border-slate-200 overflow-hidden">{driver.documentsData?.[type] || (type==='photo' && driver.avatar) ? <img src={driver.documentsData?.[type] || driver.avatar} className="h-full object-contain" /> : <span className="text-slate-400 text-sm">Preview</span>}</div>
-                    </div>
-                ))}
+                {['license', 'insurance', 'photo'].map(type => {
+                     const imgSrc = (driver.documentsData && driver.documentsData[type]) ? driver.documentsData[type] : (type==='photo' && driver.avatar ? driver.avatar : null);
+                     
+                     return (
+                         <div key={type} className="bg-white rounded-2xl p-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <h3 className="font-bold text-slate-900 flex items-center gap-2 uppercase">{type}</h3>
+                                <button className={`font-bold text-xs flex items-center gap-1 px-3 py-2 rounded-lg transition-colors ${downloaded[type] ? 'bg-green-100 text-green-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`} onClick={() => handleDownload(type)}>
+                                    <Download size={12}/> {downloaded[type] ? 'Downloaded' : 'Download Required'}
+                                </button>
+                            </div>
+                            <div className="h-48 bg-slate-100 rounded-xl flex items-center justify-center border-2 border-dashed border-slate-200 overflow-hidden relative">
+                                {imgSrc ? (
+                                    <img src={imgSrc} className="h-full w-full object-contain" />
+                                ) : (
+                                    <span className="text-slate-400 text-sm">Preview Unavailable</span>
+                                )}
+                            </div>
+                        </div>
+                     );
+                })}
             </div>
             <div className="mt-6 pt-4 border-t border-white/10"><Button onClick={() => { onVerified(); onClose(); }} disabled={!allDownloaded} variant="primary" className={`shadow-2xl shadow-indigo-500/50 ${!allDownloaded ? 'opacity-50 grayscale' : ''}`}><CheckCircle2 size={20}/> {t.confirmVerified}</Button></div>
         </div>
@@ -666,18 +743,52 @@ const DocumentReviewModal = ({ isOpen, onClose, driver, onVerified, t }: any) =>
 const AdminView = ({ setView, pendingDrivers, approveDriver, rejectDriver, liveRoutes, lang }: any) => {
   const t = translations[lang];
   const [reviewingDriver, setReviewingDriver] = useState<UserType | null>(null);
+  const now = new Date().getTime();
+  
+  // Filter only currently active routes for the "Live Routes" section
+  const activeRoutes = liveRoutes.filter((r: Ride) => r.arrivalTime.getTime() > now);
+
   return (
       <div className="pt-20 px-6 pb-32">
           <Header title={t.adminDashboard} subtitle={t.manageDrivers} />
+          
           <div className="bg-white p-6 rounded-[2rem] shadow-card mb-8">
              <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><Shield size={20} className="text-indigo-600"/> {t.pendingApprovals} ({pendingDrivers.length})</h3>
-             {pendingDrivers.map((d: UserType) => (
-                 <div key={d.id} className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 mb-2">
-                     <div className="flex items-center gap-3 mb-3"><img src={d.avatar || 'https://i.pravatar.cc/150'} className="w-10 h-10 rounded-full bg-slate-100 object-cover" /><div className="font-bold text-slate-900">{d.firstName} {d.lastName}</div></div>
-                     <div className="flex gap-2"><Button onClick={() => setReviewingDriver(d)} className="py-2 text-xs flex-1" variant="secondary">{t.reviewDocs}</Button><Button onClick={() => approveDriver(d.id)} className="py-2 text-xs flex-1" variant="primary">{t.approve}</Button><Button onClick={() => rejectDriver(d.id)} className="py-2 text-xs flex-1" variant="danger">{t.reject}</Button></div>
-                 </div>
-             ))}
+             {pendingDrivers.length === 0 ? (
+                 <div className="text-slate-400 text-center py-4 text-sm">{t.noPending}</div>
+             ) : (
+                 pendingDrivers.map((d: UserType) => (
+                     <div key={d.id} className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 mb-2">
+                         <div className="flex items-center gap-3 mb-3"><img src={d.avatar || 'https://i.pravatar.cc/150'} className="w-10 h-10 rounded-full bg-slate-100 object-cover" /><div className="font-bold text-slate-900">{d.firstName} {d.lastName}</div></div>
+                         <div className="flex gap-2"><Button onClick={() => setReviewingDriver(d)} className="py-2 text-xs flex-1" variant="secondary">{t.reviewDocs}</Button><Button onClick={() => approveDriver(d.id)} className="py-2 text-xs flex-1" variant="primary">{t.approve}</Button><Button onClick={() => rejectDriver(d.id)} className="py-2 text-xs flex-1" variant="danger">{t.reject}</Button></div>
+                     </div>
+                 ))
+             )}
           </div>
+
+          <div className="bg-white p-6 rounded-[2rem] shadow-card">
+              <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><Map size={20} className="text-secondary"/> {t.liveRoutes} ({activeRoutes.length})</h3>
+              {activeRoutes.length === 0 ? (
+                  <div className="text-slate-400 text-center py-4 text-sm">No active trips at the moment.</div>
+              ) : (
+                  <div className="space-y-4">
+                      {activeRoutes.map((r: Ride) => (
+                          <div key={r.id} className="border-l-4 border-indigo-500 pl-4 py-2">
+                              <div className="flex justify-between items-start mb-1">
+                                  <div className="font-bold text-slate-900 text-sm">{r.origin.split(',')[0]} <ArrowRight size={12} className="inline text-slate-400"/> {r.destination.split(',')[0]}</div>
+                                  <div className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">ACTIVE</div>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-slate-500">
+                                  <img src={r.driver.avatar} className="w-5 h-5 rounded-full object-cover"/>
+                                  <span className="font-medium">{r.driver.firstName}</span>
+                                  <span className="flex items-center gap-0.5 text-amber-500"><Star size={10} fill="currentColor"/> {r.driver.rating}</span>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              )}
+          </div>
+
           <DocumentReviewModal isOpen={!!reviewingDriver} driver={reviewingDriver} onClose={() => setReviewingDriver(null)} onVerified={() => {}} t={t} />
       </div>
   );
@@ -708,7 +819,7 @@ const AutocompleteInput = ({ value, onChange, placeholder, items = [], disabled 
                 className="w-full p-4 bg-slate-50 rounded-xl font-bold text-slate-900 outline-none text-sm placeholder-slate-400"
             />
             {showSuggestions && filteredItems.length > 0 && !disabled && (
-                <div className="absolute z-50 top-full left-0 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                <div className="absolute z-50 top-full left-0 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-xl max-h-48 overflow-y-auto z-[60]">
                     {filteredItems.map((item: string) => (
                         <div key={item} onClick={() => { onChange(item); setShowSuggestions(false); }} className="p-3 hover:bg-slate-50 cursor-pointer text-sm font-medium text-slate-700">{item}</div>
                     ))}
@@ -722,7 +833,8 @@ const LocationSelector = ({ label, prov, setProv, city, setCity, spot, setSpot, 
     const cityList = useMemo(() => CITIES_AND_SPOTS[prov] ? Object.keys(CITIES_AND_SPOTS[prov]) : [], [prov]);
     const spotList = useMemo(() => {
         if (!prov || !city) return [];
-        const cityKey = Object.keys(CITIES_AND_SPOTS[prov]).find(k => k.toLowerCase() === city.toLowerCase());
+        // Approximate city matching
+        const cityKey = Object.keys(CITIES_AND_SPOTS[prov] || {}).find(k => k.toLowerCase() === city.toLowerCase());
         return cityKey ? CITIES_AND_SPOTS[prov][cityKey] : [];
     }, [prov, city]);
 
@@ -732,12 +844,12 @@ const LocationSelector = ({ label, prov, setProv, city, setCity, spot, setSpot, 
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{label}</h3>
           <div className="space-y-3">
               <div className="flex gap-2">
-                  <select value={prov} onChange={e => { setProv(e.target.value); setCity(''); setSpot(''); }} className="w-20 p-4 bg-slate-50 rounded-xl font-bold text-slate-900 text-sm outline-none">
+                  <select value={prov} onChange={e => { setProv(e.target.value); setCity(''); setSpot(''); }} className="w-24 p-4 bg-slate-50 rounded-xl font-bold text-slate-900 text-sm outline-none">
                       {PROVINCES.map(p => <option key={p.code} value={p.code}>{p.code}</option>)}
                   </select>
                   <AutocompleteInput value={city} onChange={setCity} placeholder="City (e.g. Montreal)" items={cityList} />
               </div>
-              <AutocompleteInput value={spot} onChange={setSpot} placeholder="Meeting Spot (e.g. Metro)" items={spotList} disabled={!city} />
+              <AutocompleteInput value={spot} onChange={setSpot} placeholder="Pickup Location (e.g. Metro)" items={spotList} disabled={!city} />
           </div>
       </div>
     );
@@ -763,17 +875,33 @@ const PostRideView = ({ setView, lang, user, updateUser, onPublish }: any) => {
   
   const handlePublish = () => {
      if (!originCity || !originSpot || !destCity || !destSpot) { alert("Please fill location details."); return; }
+     
      const departure = new Date(`${date}T${time}`);
-     const arrival = new Date(departure.getTime() + 10800000); 
+     const arrival = new Date(departure.getTime() + 10800000); // Mock 3 hour duration
+     
      const originStr = `${originCity}, ${originProv} - ${originSpot}`;
      const destStr = `${destCity}, ${destProv} - ${destSpot}`;
 
-     onPublish({ 
-         id: `ride-${Date.now()}`, driver: user, origin: originStr, destination: destStr, stops: [], 
-         departureTime: departure, arrivalTime: arrival, price, currency: 'CAD', seatsAvailable: seats, totalSeats: seats,
-         luggage: { small: 2, medium: 1, large: 0 }, features: { instantBook: true, wifi: true, music: true, pets: false, smoking: false, winterTires: true }, 
-         distanceKm: 300, description: description || `Exact pickup: ${originAddress || originSpot}.`
-     });
+     const newRide = { 
+         id: `ride-${Date.now()}`, 
+         driver: user, 
+         origin: originStr, 
+         destination: destStr, 
+         stops: [], 
+         departureTime: departure, 
+         arrivalTime: arrival, 
+         price, 
+         currency: 'CAD', 
+         seatsAvailable: seats, 
+         totalSeats: seats,
+         luggage: { small: 2, medium: 1, large: 0 }, 
+         features: { instantBook: true, wifi: true, music: true, pets: false, smoking: false, winterTires: true }, 
+         distanceKm: 300, 
+         description: description || `Exact pickup: ${originSpot}.`
+     };
+
+     onPublish(newRide);
+     // Immediately switch to home view, filtering logic there will pick it up if it's in the future
      setView('home');
   };
 
@@ -1012,6 +1140,7 @@ export const App = () => {
       setView('home');
   };
 
+  // Ensure new rides are immediately added to state and storage for global visibility
   const handlePublish = (newRide: Ride) => {
       const updated = [...allRides, newRide];
       setAllRides(updated);
