@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Navigation } from './components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from './types';
 import { translations, Language } from './utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Filter, Star, CheckCircle2, Music, Zap, Info, Share2, ScanFace, DollarSign, Upload, FileText, ChevronDown, Snowflake, Dog, Cigarette, Car, Clock, Check, Shield, XCircle, Eye, Lock, Mail, Key, Camera, CreditCard, Briefcase, Phone, Smartphone, ChevronLeft, Globe, MessageSquare, ThumbsUp, Download, Navigation as NavigationIcon, Map, Plus, Trash2, AlertCircle, LogOut } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Filter, Star, CheckCircle2, Music, Zap, Info, Share2, ScanFace, DollarSign, Upload, FileText, ChevronDown, Snowflake, Dog, Cigarette, Car, Clock, Check, Shield, XCircle, Eye, Lock, Mail, Key, Camera, CreditCard, Briefcase, Phone, Smartphone, ChevronLeft, Globe, MessageSquare, ThumbsUp, Download, Navigation as NavigationIcon, Map, Plus, Trash2, AlertCircle, LogOut, History, TrendingUp } from 'lucide-react';
 import { LeaderboardChart } from './components/LeaderboardChart';
 import { generateRideSafetyBrief, optimizeRideDescription, resolvePickupLocation, getStaticMapUrl } from './services/geminiService';
 import { Logo } from './components/Logo';
@@ -15,47 +15,56 @@ const toLocalISOString = (date: Date) => {
   return adjustedDate.toISOString().split('T')[0];
 };
 
-// COMPRESSION UTILITY: Aggressive compression to ensure 3 images fit in LocalStorage (5MB limit)
+// COMPRESSION UTILITY: Aggressive compression to ensure images fit in LocalStorage
+// Fixed: Improved error handling to avoid "[object Object]" errors
 const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = (event) => {
             const img = new Image();
-            img.src = event.target?.result as string;
+            if (!event.target?.result) {
+                reject(new Error("File is empty or unreadable"));
+                return;
+            }
+            img.src = event.target.result as string;
             img.onload = () => {
-                const canvas = document.createElement('canvas');
-                // Reduced max dimension to 600px
-                const MAX_WIDTH = 600;
-                const MAX_HEIGHT = 600;
-                let width = img.width;
-                let height = img.height;
+                try {
+                    const canvas = document.createElement('canvas');
+                    // Aggressive reduction to 500px to ensure ~50KB size
+                    const MAX_WIDTH = 500;
+                    const MAX_HEIGHT = 500;
+                    let width = img.width;
+                    let height = img.height;
 
-                if (width > height) {
-                    if (width > MAX_WIDTH) {
-                        height *= MAX_WIDTH / width;
-                        width = MAX_WIDTH;
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
                     }
-                } else {
-                    if (height > MAX_HEIGHT) {
-                        width *= MAX_HEIGHT / height;
-                        height = MAX_HEIGHT;
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                        ctx.drawImage(img, 0, 0, width, height);
+                        // 0.5 quality JPEG is good enough for verification docs
+                        resolve(canvas.toDataURL('image/jpeg', 0.5));
+                    } else {
+                        reject(new Error("Canvas context failed"));
                     }
-                }
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                    ctx.drawImage(img, 0, 0, width, height);
-                    // Aggressive JPEG compression (0.5)
-                    resolve(canvas.toDataURL('image/jpeg', 0.5));
-                } else {
-                    reject(new Error("Canvas context failed"));
+                } catch (e) {
+                    reject(e instanceof Error ? e : new Error("Compression failed"));
                 }
             };
-            img.onerror = (error) => reject(error);
+            img.onerror = () => reject(new Error("Invalid image format. Please upload a valid JPG or PNG."));
         };
-        reader.onerror = (error) => reject(error);
+        reader.onerror = () => reject(new Error("Failed to read file from device."));
     });
 };
 
@@ -164,30 +173,40 @@ const generateMockRides = (): Ride[] => {
   let idCounter = 1;
   const now = new Date();
   
-  const cities = [
-      { city: "Montréal", prov: "QC", spot: "Berri-UQAM" },
-      { city: "Québec", prov: "QC", spot: "Gare du Palais" },
-      { city: "Toronto", prov: "ON", spot: "Union Station" },
-      { city: "Ottawa", prov: "ON", spot: "Rideau Centre" },
-      { city: "Vancouver", prov: "BC", spot: "Pacific Central" },
-      { city: "Calgary", prov: "AB", spot: "Calgary Tower" }
-  ];
+  // Flatten all available cities and spots into a single list to pick from
+  const allLocations: {city: string, prov: string, spot: string}[] = [];
+  Object.entries(CITIES_AND_SPOTS).forEach(([prov, cities]) => {
+      Object.entries(cities).forEach(([city, spots]) => {
+          spots.forEach(spot => {
+              allLocations.push({ city, prov, spot });
+          });
+      });
+  });
 
-  for (let i = 0; i < 50; i++) {
-     const origin = getRandom(cities);
-     let dest = getRandom(cities);
-     while (dest.city === origin.city) dest = getRandom(cities); 
+  // Generate 60 diverse rides
+  for (let i = 0; i < 60; i++) {
+     const origin = getRandom(allLocations);
+     let dest = getRandom(allLocations);
+     // Ensure different city for origin and destination
+     while (dest.city === origin.city) dest = getRandom(allLocations); 
 
      const date = new Date(now);
-     date.setDate(date.getDate() + Math.floor(Math.random() * 5)); 
-     date.setHours(Math.floor(Math.random() * 14) + 6, 0, 0, 0); 
+     // Schedule for next 7 days to ensure visibility
+     date.setDate(date.getDate() + Math.floor(Math.random() * 7)); 
+     date.setHours(Math.floor(Math.random() * 14) + 6, Math.random() > 0.5 ? 30 : 0, 0, 0); 
+     
+     // If date is in the past (e.g. today but earlier hour), move to tomorrow
+     if (date.getTime() < now.getTime()) {
+         date.setDate(date.getDate() + 1);
+     }
      
      const driver = getRandom(DRIVERS);
      const originStr = `${origin.city}, ${origin.prov} - ${origin.spot}`;
      const destStr = `${dest.city}, ${dest.prov} - ${dest.spot}`;
 
      const totalSeats = Math.floor(Math.random() * 3) + 3; 
-     const seatsAvailable = Math.random() > 0.3 ? totalSeats : Math.floor(Math.random() * totalSeats);
+     // Ensure at least 1 seat available so it shows up in search
+     const seatsAvailable = Math.floor(Math.random() * totalSeats) + 1;
 
      rides.push({
         id: `r${idCounter++}`,
@@ -196,7 +215,7 @@ const generateMockRides = (): Ride[] => {
         destination: destStr,
         stops: [], 
         departureTime: new Date(date), 
-        arrivalTime: new Date(date.getTime() + 10800000), 
+        arrivalTime: new Date(date.getTime() + 10800000), // 3 hours later
         price: Math.floor(Math.random() * 60) + 30, 
         currency: 'CAD', 
         seatsAvailable: seatsAvailable, 
@@ -210,8 +229,10 @@ const generateMockRides = (): Ride[] => {
   return rides.sort((a, b) => a.departureTime.getTime() - b.departureTime.getTime());
 };
 
-const STORAGE_KEY_RIDES = 'alloride_rides_data_v2'; 
-const STORAGE_KEY_PENDING_DRIVERS = 'alloride_pending_drivers_v1';
+// BUMPED VERSION TO V4 TO FORCE REFRESH OF RIDES
+const STORAGE_KEY_RIDES = 'alloride_rides_data_v4'; 
+// BUMPED VERSION TO V2 TO FORCE CLEAN DRIVER SLATE
+const STORAGE_KEY_PENDING_DRIVERS = 'alloride_pending_drivers_v2';
 
 const loadRidesFromStorage = (): Ride[] => {
   try {
@@ -266,7 +287,7 @@ const Header = ({ title, subtitle, rightAction, light = false }: { title: string
   </div>
 );
 
-const RideCard: React.FC<{ ride: Ride; onClick: () => void; t: any; lang: string; isPast?: boolean }> = ({ ride, onClick, t, lang, isPast = false }) => {
+const RideCard: React.FC<{ ride: Ride; onClick: () => void; t: any; lang: string; isPast?: boolean; adminMode?: boolean }> = ({ ride, onClick, t, lang, isPast = false, adminMode = false }) => {
   const startTime = ride.departureTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const endTime = ride.arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const duration = Math.round((ride.arrivalTime.getTime() - ride.departureTime.getTime()) / 3600000 * 10) / 10;
@@ -289,7 +310,7 @@ const RideCard: React.FC<{ ride: Ride; onClick: () => void; t: any; lang: string
   const dest = parseLoc(ride.destination);
 
   return (
-    <div onClick={onClick} className={`bg-white rounded-3xl p-5 shadow-card mb-5 active:scale-[0.99] transition-transform cursor-pointer border relative overflow-hidden group ${isPast ? 'opacity-70 border-slate-100 grayscale-[0.5]' : 'border-slate-100'}`}>
+    <div onClick={onClick} className={`bg-white rounded-3xl p-5 shadow-card mb-5 active:scale-[0.99] transition-transform cursor-pointer border relative overflow-hidden group ${isPast ? 'opacity-70 border-slate-100 grayscale-[0.5]' : 'border-slate-100'} ${adminMode ? 'border-l-4 border-l-indigo-500' : ''}`}>
       {!isPast && <div className="absolute -right-10 -top-10 w-32 h-32 bg-indigo-50 rounded-full blur-2xl group-hover:bg-indigo-100 transition-colors"></div>}
       
       <div className="flex justify-between items-center mb-4 relative z-10">
@@ -472,9 +493,10 @@ const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
               } else {
                   setDocs((prev: any) => ({ ...prev, [field]: base64 }));
               }
-          } catch(err) {
+          } catch(err: any) {
               console.error("Error reading file", err);
-              alert("Failed to process image. Please try a smaller file.");
+              // Handle error gracefully
+              alert(`Failed to process image: ${err.message || 'Unknown error'}. Please try a valid image file.`);
           }
       }
   };
@@ -812,13 +834,19 @@ const DocumentReviewModal = ({ isOpen, onClose, driver, onVerified, t }: any) =>
     );
 };
 
-const AdminView = ({ setView, pendingDrivers, approveDriver, rejectDriver, liveRoutes, lang }: any) => {
+const AdminView = ({ setView, pendingDrivers, approveDriver, rejectDriver, allRides, lang, setDetailRide }: any) => {
   const t = translations[lang];
   const [reviewingDriver, setReviewingDriver] = useState<UserType | null>(null);
+  const [activeTab, setActiveTab] = useState<'active' | 'upcoming' | 'past'>('active');
+  
   const now = new Date().getTime();
   
-  // Filter only currently active routes for the "Live Routes" section
-  const activeRoutes = liveRoutes.filter((r: Ride) => r.arrivalTime.getTime() > now);
+  // Categorize Rides
+  const activeRoutes = useMemo(() => allRides.filter((r: Ride) => r.departureTime.getTime() < now && r.arrivalTime.getTime() > now), [allRides, now]);
+  const upcomingRoutes = useMemo(() => allRides.filter((r: Ride) => r.departureTime.getTime() > now), [allRides, now]);
+  const pastRoutes = useMemo(() => allRides.filter((r: Ride) => r.arrivalTime.getTime() < now).sort((a: Ride, b: Ride) => b.departureTime.getTime() - a.departureTime.getTime()), [allRides, now]);
+
+  const displayedRoutes = activeTab === 'active' ? activeRoutes : (activeTab === 'upcoming' ? upcomingRoutes : pastRoutes);
 
   return (
       <div className="pt-20 px-6 pb-32">
@@ -831,7 +859,15 @@ const AdminView = ({ setView, pendingDrivers, approveDriver, rejectDriver, liveR
              ) : (
                  pendingDrivers.map((d: UserType) => (
                      <div key={d.id} className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 mb-2">
-                         <div className="flex items-center gap-3 mb-3"><img src={d.avatar || 'https://i.pravatar.cc/150'} className="w-10 h-10 rounded-full bg-slate-100 object-cover" /><div className="font-bold text-slate-900">{d.firstName} {d.lastName}</div></div>
+                         <div className="flex items-center gap-3 mb-3">
+                             {/* STRICT: Only show avatar if real base64 or valid URL */}
+                             {d.avatar && !d.avatar.includes('placehold') ? (
+                                <img src={d.avatar} className="w-10 h-10 rounded-full bg-slate-100 object-cover" />
+                             ) : (
+                                <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-400 font-bold">{d.firstName[0]}</div>
+                             )}
+                             <div className="font-bold text-slate-900">{d.firstName} {d.lastName}</div>
+                         </div>
                          <div className="flex gap-2"><Button onClick={() => setReviewingDriver(d)} className="py-2 text-xs flex-1" variant="secondary">{t.reviewDocs}</Button><Button onClick={() => approveDriver(d.id)} className="py-2 text-xs flex-1" variant="primary">{t.approve}</Button><Button onClick={() => rejectDriver(d.id)} className="py-2 text-xs flex-1" variant="danger">{t.reject}</Button></div>
                      </div>
                  ))
@@ -839,26 +875,37 @@ const AdminView = ({ setView, pendingDrivers, approveDriver, rejectDriver, liveR
           </div>
 
           <div className="bg-white p-6 rounded-[2rem] shadow-card">
-              <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><Map size={20} className="text-secondary"/> {t.liveRoutes} ({activeRoutes.length})</h3>
-              {activeRoutes.length === 0 ? (
-                  <div className="text-slate-400 text-center py-4 text-sm">No active trips at the moment.</div>
-              ) : (
-                  <div className="space-y-4">
-                      {activeRoutes.map((r: Ride) => (
-                          <div key={r.id} className="border-l-4 border-indigo-500 pl-4 py-2">
+              <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-bold text-slate-900 flex items-center gap-2"><Map size={20} className="text-secondary"/> Trip Management</h3>
+              </div>
+              
+              <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
+                  <button onClick={() => setActiveTab('active')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'active' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Active ({activeRoutes.length})</button>
+                  <button onClick={() => setActiveTab('upcoming')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'upcoming' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Upcoming ({upcomingRoutes.length})</button>
+                  <button onClick={() => setActiveTab('past')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'past' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>History ({pastRoutes.length})</button>
+              </div>
+
+              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                  {displayedRoutes.length === 0 ? (
+                      <div className="text-slate-400 text-center py-8 text-sm">No trips in this category.</div>
+                  ) : (
+                      displayedRoutes.map((r: Ride) => (
+                          <div key={r.id} onClick={() => { setDetailRide(r); setView('ride-detail'); }} className="border-l-4 border-indigo-500 pl-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors rounded-r-xl">
                               <div className="flex justify-between items-start mb-1">
                                   <div className="font-bold text-slate-900 text-sm">{r.origin.split(',')[0]} <ArrowRight size={12} className="inline text-slate-400"/> {r.destination.split(',')[0]}</div>
-                                  <div className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">ACTIVE</div>
+                                  <div className="text-xs text-slate-400 font-bold">{r.departureTime.toLocaleDateString()}</div>
                               </div>
-                              <div className="flex items-center gap-2 text-xs text-slate-500">
-                                  <img src={r.driver.avatar} className="w-5 h-5 rounded-full object-cover"/>
-                                  <span className="font-medium">{r.driver.firstName}</span>
-                                  <span className="flex items-center gap-0.5 text-amber-500"><Star size={10} fill="currentColor"/> {r.driver.rating}</span>
+                              <div className="flex items-center justify-between mt-2">
+                                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                                      <img src={r.driver.avatar || 'https://i.pravatar.cc/150'} className="w-6 h-6 rounded-full object-cover"/>
+                                      <span className="font-medium">{r.driver.firstName} {r.driver.lastName}</span>
+                                  </div>
+                                  <span className="text-xs font-bold text-indigo-600">${r.price}</span>
                               </div>
                           </div>
-                      ))}
-                  </div>
-              )}
+                      ))
+                  )}
+              </div>
           </div>
 
           <DocumentReviewModal isOpen={!!reviewingDriver} driver={reviewingDriver} onClose={() => setReviewingDriver(null)} onVerified={() => {}} t={t} />
@@ -1172,7 +1219,15 @@ export const App = () => {
   });
 
   useEffect(() => {
+     // Clean up old versions to free space to prevent QuotaExceededError
+     try {
+         localStorage.removeItem('alloride_rides_data_v2'); 
+         localStorage.removeItem('alloride_pending_drivers_v1');
+         localStorage.removeItem('alloride_rides_data_v3');
+     } catch(e) { console.error("Cleanup error", e); }
+     
      setAllRides(loadRidesFromStorage());
+     
      // Only add dummy data if absolutely empty to avoid empty state confusion, but prioritize storage
      if (pendingDrivers.length === 0) {
         setPendingDrivers([
@@ -1264,7 +1319,7 @@ export const App = () => {
         {view === 'wallet' && <WalletView lang={lang} />}
         {view === 'profile' && <ProfileView user={user} lang={lang} onLogout={handleLogout} />}
         {view === 'leaderboard' && <LeaderboardView lang={lang} />}
-        {view === 'admin' && <AdminView setView={setView} pendingDrivers={pendingDrivers} approveDriver={approveDriver} rejectDriver={() => {}} liveRoutes={allRides} lang={lang} />}
+        {view === 'admin' && <AdminView setView={setView} pendingDrivers={pendingDrivers} approveDriver={approveDriver} rejectDriver={() => {}} allRides={allRides} lang={lang} setDetailRide={(r: Ride) => { setDetailRide(r); setView('ride-detail'); }} />}
         {view === 'legal' && <LegalView onBack={() => setView('home')} lang={lang} />}
         
         {view !== 'ride-detail' && view !== 'post' && view !== 'legal' && (
