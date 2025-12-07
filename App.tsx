@@ -176,6 +176,7 @@ const generateMockRides = (): Ride[] => {
 };
 
 const STORAGE_KEY_RIDES = 'alloride_rides_data_v2'; 
+const STORAGE_KEY_PENDING_DRIVERS = 'alloride_pending_drivers_v1';
 
 const loadRidesFromStorage = (): Ride[] => {
   try {
@@ -460,6 +461,19 @@ const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
       };
       
       updateUser(updatedUser);
+
+      // PERSIST PENDING DRIVER TO STORAGE
+      try {
+          const stored = localStorage.getItem(STORAGE_KEY_PENDING_DRIVERS);
+          const pending = stored ? JSON.parse(stored) : [];
+          // Remove if exists to avoid duplicates, then add
+          const filtered = pending.filter((u: UserType) => u.id !== updatedUser.id);
+          filtered.push(updatedUser);
+          localStorage.setItem(STORAGE_KEY_PENDING_DRIVERS, JSON.stringify(filtered));
+      } catch (e) {
+          console.error("Failed to persist driver", e);
+      }
+      
       onComplete();
   };
 
@@ -714,7 +728,14 @@ const DocumentReviewModal = ({ isOpen, onClose, driver, onVerified, t }: any) =>
             <div className="flex justify-between items-center mb-6 text-white"><h2 className="text-2xl font-bold">{t.reviewDocs}</h2><button onClick={onClose} className="p-2 bg-white/10 rounded-full"><XCircle/></button></div>
             <div className="flex-1 overflow-y-auto space-y-6">
                 {['license', 'insurance', 'photo'].map(type => {
-                     const imgSrc = (driver.documentsData && driver.documentsData[type]) ? driver.documentsData[type] : (type==='photo' && driver.avatar ? driver.avatar : null);
+                     // Check if documentsData exists and has the key. 
+                     // IMPORTANT: Ensure we check if the string is not empty.
+                     const hasRealData = driver.documentsData && driver.documentsData[type] && driver.documentsData[type].length > 100;
+                     
+                     // If real data exists, use it. Otherwise, fallback logic (only for photo).
+                     const imgSrc = hasRealData 
+                        ? driver.documentsData[type] 
+                        : (type === 'photo' && driver.avatar && !driver.avatar.includes('pravatar') ? driver.avatar : null);
                      
                      return (
                          <div key={type} className="bg-white rounded-2xl p-4">
@@ -1101,7 +1122,18 @@ export const App = () => {
 
   const handleLogin = (loggedInUser: UserType) => {
       setUser(loggedInUser);
-      setView(loggedInUser.role === 'admin' ? 'admin' : 'home');
+      if (loggedInUser.role === 'admin') {
+          // FORCE RELOAD of pending drivers from storage when admin logs in
+          try {
+            const stored = localStorage.getItem(STORAGE_KEY_PENDING_DRIVERS);
+            if (stored) {
+                setPendingDrivers(JSON.parse(stored));
+            }
+          } catch(e) { console.error("Error loading drivers", e); }
+          setView('admin');
+      } else {
+          setView('home');
+      }
   };
 
   const handleLogout = () => {
@@ -1148,7 +1180,10 @@ export const App = () => {
   };
   
   const approveDriver = (id: string) => {
-      setPendingDrivers(pendingDrivers.filter(d => d.id !== id));
+      const updatedPending = pendingDrivers.filter(d => d.id !== id);
+      setPendingDrivers(updatedPending);
+      // Persist the removal from pending list
+      localStorage.setItem(STORAGE_KEY_PENDING_DRIVERS, JSON.stringify(updatedPending));
       alert("Driver Approved");
   };
 
