@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Navigation } from './components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from './types';
 import { translations, Language } from './utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Filter, Star, CheckCircle2, Music, Zap, Info, Share2, ScanFace, DollarSign, Upload, FileText, ChevronDown, Snowflake, Dog, Cigarette, Car, Clock, Check, Shield, XCircle, Eye, Lock, Mail, Key, Camera, CreditCard, Briefcase, Phone, Smartphone, ChevronLeft, Globe, MessageSquare, ThumbsUp, Download } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Filter, Star, CheckCircle2, Music, Zap, Info, Share2, ScanFace, DollarSign, Upload, FileText, ChevronDown, Snowflake, Dog, Cigarette, Car, Clock, Check, Shield, XCircle, Eye, Lock, Mail, Key, Camera, CreditCard, Briefcase, Phone, Smartphone, ChevronLeft, Globe, MessageSquare, ThumbsUp, Download, Navigation as NavigationIcon } from 'lucide-react';
 import { LeaderboardChart } from './components/LeaderboardChart';
-import { generateRideSafetyBrief, optimizeRideDescription } from './services/geminiService';
+import { generateRideSafetyBrief, optimizeRideDescription, resolvePickupLocation, getStaticMapUrl } from './services/geminiService';
 import { Logo } from './components/Logo';
 
 // --- Utilities (Keep existing) ---
@@ -85,6 +85,36 @@ const generateMockRides = (): Ride[] => {
   }
   return rides.sort((a, b) => a.departureTime.getTime() - b.departureTime.getTime());
 };
+
+// --- Storage Utils ---
+const STORAGE_KEY_RIDES = 'alloride_rides_data_v1';
+
+const loadRidesFromStorage = (): Ride[] => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_RIDES);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // We must map strings back to Date objects
+      return parsed.map((r: any) => ({
+        ...r,
+        departureTime: new Date(r.departureTime),
+        arrivalTime: new Date(r.arrivalTime),
+      }));
+    }
+  } catch (e) {
+    console.error("Failed to load rides from storage", e);
+  }
+  return generateMockRides();
+};
+
+const saveRidesToStorage = (rides: Ride[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEY_RIDES, JSON.stringify(rides));
+  } catch (e) {
+    console.error("Failed to save rides", e);
+  }
+};
+
 
 // --- Components ---
 
@@ -331,6 +361,13 @@ const HomeView = ({ setView, setDetailRide, lang, setLang, user, allRides, booke
   const dateInputRef = useRef<HTMLInputElement>(null);
   const t = translations[lang];
 
+  // Filter rides to show only valid upcoming rides for the main list
+  // Logic: Ride must be in the future (departure > now) or active
+  const upcomingRides = useMemo(() => {
+     const now = new Date();
+     return allRides.filter(r => r.arrivalTime.getTime() > now.getTime());
+  }, [allRides]);
+
   const myRides = useMemo(() => {
      if (user.role === 'driver') {
         return allRides.filter(r => r.driver.id === user.id);
@@ -340,17 +377,20 @@ const HomeView = ({ setView, setDetailRide, lang, setLang, user, allRides, booke
 
   const displayRides = useMemo(() => {
     if (hasSearched) return filteredRides;
-    const sorted = [...allRides].sort((a, b) => {
+    
+    // Sort logic
+    const sorted = [...upcomingRides].sort((a, b) => {
         const aNew = a.id.toString().startsWith('ride-');
         const bNew = b.id.toString().startsWith('ride-');
+        // Prioritize newly created rides, then by date
         if (aNew && !bNew) return -1;
         if (!aNew && bNew) return 1;
         if (aNew && bNew) return Number(b.id.split('-')[1]) - Number(a.id.split('-')[1]);
         return a.departureTime.getTime() - b.departureTime.getTime();
-    }).filter(r => r.driver.id !== user.id && r.seatsAvailable > 0); // Only show rides with seats
+    }).filter(r => r.driver.id !== user.id && r.seatsAvailable > 0);
 
     return showAll ? sorted : sorted.slice(0, 10);
-  }, [hasSearched, filteredRides, allRides, user.id, showAll]);
+  }, [hasSearched, filteredRides, upcomingRides, user.id, showAll]);
 
   const applySearch = () => {
     setHasSearched(true);
@@ -361,7 +401,9 @@ const HomeView = ({ setView, setDetailRide, lang, setLang, user, allRides, booke
        const matchSeats = ride.seatsAvailable >= passengers;
        const rideDateStr = toLocalISOString(ride.departureTime);
        const matchDate = !date || rideDateStr === date;
-       return matchOrigin && matchDest && matchSeats && matchDate;
+       // Also ensure we don't show past rides in search
+       const isFuture = ride.arrivalTime.getTime() > new Date().getTime();
+       return matchOrigin && matchDest && matchSeats && matchDate && isFuture;
     });
     if (filters.bestPrice) results.sort((a, b) => a.price - b.price);
     else results.sort((a, b) => a.departureTime.getTime() - b.departureTime.getTime());
@@ -630,11 +672,27 @@ const LeaderboardView = ({ lang }: { lang: Language }) => { const t = translatio
 const RideDetailView = ({ ride, onBack, lang, onBook, initialSeats }: { ride: Ride, onBack: () => void, lang: Language, onBook: (ride: Ride, seats: number) => void, initialSeats: number }) => {
   const [safetyTip, setSafetyTip] = useState<string>("Loading route info...");
   const [seatsToBook, setSeatsToBook] = useState(initialSeats);
+  const [locationInfo, setLocationInfo] = useState<{ address: string, uri: string } | null>(null);
   const t = translations[lang];
 
-  useEffect(() => { generateRideSafetyBrief(ride.origin, ride.destination).then(setSafetyTip); }, [ride]);
+  useEffect(() => { 
+    generateRideSafetyBrief(ride.origin, ride.destination).then(setSafetyTip); 
+    
+    // Resolve location from description
+    const resolveLoc = async () => {
+      if (ride.description) {
+         const result = await resolvePickupLocation(ride.description, ride.origin);
+         setLocationInfo(result);
+      } else {
+         setLocationInfo({ 
+             address: ride.origin, 
+             uri: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ride.origin)}` 
+         });
+      }
+    };
+    resolveLoc();
+  }, [ride]);
   
-  // Ensure we don't try to book more than available
   useEffect(() => {
     if (seatsToBook > ride.seatsAvailable) {
         setSeatsToBook(ride.seatsAvailable);
@@ -643,10 +701,31 @@ const RideDetailView = ({ ride, onBack, lang, onBook, initialSeats }: { ride: Ri
 
   return (
     <div className="min-h-full bg-white pb-32">
-      <div className="relative h-72">
-        <img src={`https://picsum.photos/800/600?random=${ride.id}`} className="w-full h-full object-cover" alt="Map" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-white"></div>
-        <button onClick={onBack} className="absolute top-12 left-6 bg-white/20 backdrop-blur-md p-3 rounded-full text-white hover:bg-white/30 transition-colors"><ChevronLeft size={24} /></button>
+      <div className="relative h-72 group">
+        {locationInfo ? (
+            <img 
+                src={getStaticMapUrl(locationInfo.address)} 
+                className="w-full h-full object-cover transition-opacity duration-500" 
+                alt="Map" 
+            />
+        ) : (
+            <img src={`https://picsum.photos/800/600?random=${ride.id}`} className="w-full h-full object-cover" alt="Map" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-white"></div>
+        <button onClick={onBack} className="absolute top-12 left-6 bg-white/20 backdrop-blur-md p-3 rounded-full text-white hover:bg-white/30 transition-colors z-20"><ChevronLeft size={24} /></button>
+        
+        {/* Get Directions Button Overlay */}
+        {locationInfo && (
+            <a 
+                href={locationInfo.uri} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="absolute bottom-16 right-6 z-20 bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 hover:bg-white transition-colors text-slate-900"
+            >
+                <NavigationIcon size={14} className="text-primary fill-primary" /> Get Directions
+            </a>
+        )}
       </div>
       <div className="px-6 relative -top-12">
         <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl border border-slate-50">
@@ -741,7 +820,14 @@ const RideDetailView = ({ ride, onBack, lang, onBook, initialSeats }: { ride: Ri
              <div className="mt-6">
                 <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2"><Info size={16} className="text-slate-400"/> Pickup & Details</h3>
                 <div className="bg-slate-50 p-4 rounded-2xl">
-                    <p className="text-slate-600 text-sm leading-relaxed font-medium">{ride.description}</p>
+                    <p className="text-slate-600 text-sm leading-relaxed font-medium">
+                        {ride.description}
+                        {locationInfo && locationInfo.address !== ride.origin && (
+                            <span className="block mt-2 text-xs font-bold text-primary flex items-center gap-1">
+                                <MapPin size={12}/> AI Identified Location: {locationInfo.address}
+                            </span>
+                        )}
+                    </p>
                 </div>
              </div>
            )}
@@ -903,14 +989,20 @@ const App: React.FC = () => {
   const [currentView, setView] = useState<ViewState>('home');
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
   const [lang, setLang] = useState<Language>('en');
-  const [allRides, setAllRides] = useState<Ride[]>([]);
+  // Initialize allRides from localStorage immediately
+  const [allRides, setAllRides] = useState<Ride[]>(() => loadRidesFromStorage());
   const [bookedRides, setBookedRides] = useState<Ride[]>([]);
   const [pendingDrivers, setPendingDrivers] = useState<UserType[]>([]);
   const [ratingModalOpen, setRatingModalOpen] = useState(false);
   const [rideToRate, setRideToRate] = useState<Ride | null>(null);
   const [selectedSeats, setSelectedSeats] = useState(1);
 
-  useEffect(() => { setAllRides(generateMockRides()); }, []);
+  // Automatically save rides to storage whenever the list changes
+  useEffect(() => {
+    saveRidesToStorage(allRides);
+  }, [allRides]);
+
+  // We no longer need the initial useEffect to generate mocks because we do it in initialization
 
   const updateUser = (updatedUser: UserType) => {
      setUser(updatedUser);
@@ -918,7 +1010,9 @@ const App: React.FC = () => {
   };
   
   // Logic: Prepend the new ride to the array so it is physically first
-  const publishRide = (newRide: Ride) => setAllRides(prev => [newRide, ...prev]);
+  const publishRide = (newRide: Ride) => {
+    setAllRides(prev => [newRide, ...prev]);
+  };
   
   const approveDriver = (id: string) => {
      setPendingDrivers(prev => prev.filter(d => d.id !== id));
@@ -965,6 +1059,9 @@ const App: React.FC = () => {
 
   if (!user) return <AuthView onLogin={(u) => { setUser(u); setView(u.role === 'driver' ? 'post' : 'home'); }} lang={lang} setLang={setLang} />;
 
+  // Filter for Admin: active routes (where arrival time is in future) regardless of who created them
+  const activeAdminRoutes = allRides.filter(r => r.arrivalTime.getTime() > new Date().getTime());
+
   const renderView = () => {
     switch(currentView) {
       case 'home': case 'search': return <HomeView setView={setView} setDetailRide={setSelectedRide} lang={lang} setLang={setLang} user={user} allRides={allRides} bookedRides={bookedRides} onRateRide={handleRateRide} setSelectedSeats={setSelectedSeats} />;
@@ -978,7 +1075,7 @@ const App: React.FC = () => {
       case 'ride-detail': return selectedRide ? <RideDetailView ride={selectedRide} onBack={() => setView('home')} lang={lang} onBook={handleBookRide} initialSeats={selectedSeats} /> : <HomeView setView={setView} setDetailRide={setSelectedRide} lang={lang} setLang={setLang} user={user} allRides={allRides} bookedRides={bookedRides} onRateRide={handleRateRide} setSelectedSeats={setSelectedSeats} />;
       case 'wallet': return <WalletView lang={lang} />;
       case 'leaderboard': return <LeaderboardView lang={lang} />;
-      case 'admin': return <AdminView setView={setView} pendingDrivers={pendingDrivers} approveDriver={approveDriver} rejectDriver={rejectDriver} liveRoutes={allRides.filter(r => r.driver.id !== user.id)} />;
+      case 'admin': return <AdminView setView={setView} pendingDrivers={pendingDrivers} approveDriver={approveDriver} rejectDriver={rejectDriver} liveRoutes={activeAdminRoutes} />;
       case 'legal': return <LegalView onBack={() => setView('profile')} lang={lang} />;
       case 'profile': {
         const t = translations[lang];

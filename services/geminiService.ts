@@ -50,3 +50,43 @@ export const calculateAIPrice = async (distance: number, demandLevel: 'low' | 'h
    const multiplier = demandLevel === 'high' ? 1.5 : 1.0;
    return Math.round(distance * baseRate * multiplier);
 };
+
+export const resolvePickupLocation = async (description: string, defaultOrigin: string) => {
+  if (!apiKey) return { address: defaultOrigin, uri: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(defaultOrigin)}` };
+
+  try {
+    const response = await ai.models.generateContent({
+      model: modelId,
+      contents: `Identify the specific physical meeting point or address mentioned in this ride description: "${description}". Return only the specific address or place name. If no specific place is mentioned, return "${defaultOrigin}".`,
+      config: {
+        tools: [{ googleMaps: {} }],
+      },
+    });
+
+    const address = response.text?.trim() || defaultOrigin;
+    
+    // Attempt to extract a Google Maps URI from grounding metadata
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks as any[];
+    let uri = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+    
+    if (chunks && chunks.length > 0) {
+        for (const chunk of chunks) {
+            if (chunk.maps?.uri) {
+                uri = chunk.maps.uri;
+                break;
+            }
+        }
+    }
+
+    return { address, uri };
+  } catch (error) {
+    console.error("Location resolution error", error);
+    return { address: defaultOrigin, uri: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(defaultOrigin)}` };
+  }
+};
+
+export const getStaticMapUrl = (address: string) => {
+    if (!apiKey) return `https://picsum.photos/800/600?random=${Date.now()}`;
+    // Use the API key for Static Maps
+    return `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(address)}&zoom=15&size=800x600&maptype=roadmap&markers=color:red%7C${encodeURIComponent(address)}&key=${apiKey}`;
+};
