@@ -83,12 +83,18 @@ const getDisplayDate = (dateStr: string, t: any, lang: string) => {
 };
 
 // --- Data & Constants ---
-const STORAGE_KEY_RIDES = 'alloride_rides_v8'; 
+const STORAGE_KEY_RIDES = 'alloride_rides_v9'; // Incremented version to force new mock data generation
 const STORAGE_KEY_USERS = 'alloride_users_v1';
 
 const MOCK_USER_TEMPLATE: UserType = {
   id: 'u1', firstName: 'Alex', lastName: 'Rivera', email: 'alex@example.com', phone: '514-555-0199', role: 'passenger', avatar: 'https://i.pravatar.cc/150?u=alex', isVerified: true, driverStatus: 'approved', documentsUploaded: { license: true, insurance: true, photo: true }, rating: 4.9, totalRides: 142,
   vehicle: { make: "Toyota", model: "RAV4", year: "2023", color: "Midnight Black", plate: "K29 4F2" }
+};
+
+const PROVINCE_NAMES: Record<string, string> = {
+    "AB": "Alberta", "BC": "British Columbia", "MB": "Manitoba", "NB": "New Brunswick", 
+    "NL": "Newfoundland", "NS": "Nova Scotia", "NT": "Northwest Territories", "NU": "Nunavut",
+    "ON": "Ontario", "PE": "Prince Edward Island", "QC": "Quebec", "SK": "Saskatchewan", "YT": "Yukon"
 };
 
 // Extended City and Spot Data for all Canadian Provinces
@@ -158,12 +164,6 @@ const CITIES_AND_SPOTS: Record<string, Record<string, string[]>> = {
   }
 };
 
-const PROVINCE_NAMES: Record<string, string> = {
-    "AB": "Alberta", "BC": "British Columbia", "MB": "Manitoba", "NB": "New Brunswick", 
-    "NL": "Newfoundland", "NS": "Nova Scotia", "NT": "Northwest Territories", "NU": "Nunavut",
-    "ON": "Ontario", "PE": "Prince Edward Island", "QC": "Quebec", "SK": "Saskatchewan", "YT": "Yukon"
-};
-
 const generateMockRides = (): Ride[] => {
     const rides: Ride[] = [];
     const drivers = [
@@ -174,16 +174,30 @@ const generateMockRides = (): Ride[] => {
         { id: 'd5', firstName: 'David', lastName: 'Beck', avatar: 'https://i.pravatar.cc/150?u=david', rating: 4.6 }
     ];
 
-    const routes = [
-        { origin: 'Montreal, QC', dest: 'Quebec City, QC' },
-        { origin: 'Montreal, QC', dest: 'Toronto, ON' },
-        { origin: 'Ottawa, ON', dest: 'Montreal, QC' },
-        { origin: 'Quebec City, QC', dest: 'Sherbrooke, QC' },
-        { origin: 'Toronto, ON', dest: 'Kingston, ON' }
-    ];
+    const provinceKeys = Object.keys(CITIES_AND_SPOTS);
 
-    for (let i = 0; i < 25; i++) {
-        const route = routes[Math.floor(Math.random() * routes.length)];
+    for (let i = 0; i < 35; i++) { // Increased mock count
+        // Dynamically pick route based on available data
+        const originProv = provinceKeys[Math.floor(Math.random() * provinceKeys.length)];
+        const originCities = Object.keys(CITIES_AND_SPOTS[originProv]);
+        const originCity = originCities[Math.floor(Math.random() * originCities.length)];
+
+        // Decide if destination is same province (80%) or different (20%)
+        let destProv = originProv;
+        if (Math.random() > 0.8) {
+             destProv = provinceKeys[Math.floor(Math.random() * provinceKeys.length)];
+        }
+        
+        const destCities = Object.keys(CITIES_AND_SPOTS[destProv]);
+        let destCity = destCities[Math.floor(Math.random() * destCities.length)];
+
+        // Ensure origin != dest
+        let attempts = 0;
+        while ((originCity === destCity && originProv === destProv) && attempts < 10) {
+             destCity = destCities[Math.floor(Math.random() * destCities.length)];
+             attempts++;
+        }
+
         const driver = drivers[Math.floor(Math.random() * drivers.length)];
         
         const date = new Date();
@@ -198,9 +212,9 @@ const generateMockRides = (): Ride[] => {
         rides.push({
             id: `mock-${i}-${Date.now()}`,
             driver: { ...MOCK_USER_TEMPLATE, ...driver, role: 'driver', id: driver.id } as UserType,
-            origin: route.origin,
-            destination: route.dest,
-            price: 25 + Math.floor(Math.random() * 40),
+            origin: `${originCity}, ${originProv}`,
+            destination: `${destCity}, ${destProv}`,
+            price: 25 + Math.floor(Math.random() * 60),
             seatsAvailable: 1 + Math.floor(Math.random() * 3),
             totalSeats: 4,
             departureTime: date,
@@ -292,13 +306,15 @@ const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvi
                     {/* Row 1: Province & City */}
                     <div className="flex gap-2">
                         {/* Compact Province Select */}
-                        <div className="relative w-24 shrink-0">
+                        <div className="relative w-32 shrink-0">
                             <select 
                                 value={province} 
                                 onChange={(e) => { setProvince(e.target.value); setCity(''); setSpot(''); }} 
-                                className="w-full h-[52px] px-3 bg-slate-50 rounded-xl font-bold text-sm appearance-none outline-none border border-transparent focus:bg-white focus:border-primary transition-all text-center"
+                                className="w-full h-[52px] px-3 bg-slate-50 rounded-xl font-bold text-xs appearance-none outline-none border border-transparent focus:bg-white focus:border-primary transition-all text-left truncate pr-6"
                             >
-                                {Object.keys(CITIES_AND_SPOTS).map(p => <option key={p} value={p}>{p}</option>)}
+                                {Object.keys(CITIES_AND_SPOTS).map(p => (
+                                    <option key={p} value={p}>{PROVINCE_NAMES[p] || p}</option>
+                                ))}
                             </select>
                             <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
                         </div>
@@ -308,7 +324,7 @@ const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvi
                             <input 
                                 value={city} 
                                 onChange={(e) => handleCityChange(e.target.value)} 
-                                placeholder={type === 'origin' ? "Leaving from (City)..." : "Going to (City)..."}
+                                placeholder={type === 'origin' ? "City (Leaving)..." : "City (Going)..."}
                                 className="w-full h-[52px] px-4 bg-slate-50 rounded-xl font-bold text-sm outline-none border border-transparent focus:bg-white focus:border-primary transition-all placeholder:font-normal placeholder:text-slate-400"
                                 onFocus={() => { if(province) handleCityChange(city); }}
                             />
