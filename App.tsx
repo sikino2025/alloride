@@ -15,6 +15,15 @@ const toLocalISOString = (date: Date) => {
   return adjustedDate.toISOString().split('T')[0];
 };
 
+const downloadBase64 = (base64: string, filename: string) => {
+  const link = document.createElement('a');
+  link.href = base64;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 // Aggressive Image Compression
 const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -75,23 +84,11 @@ const getDisplayDate = (dateStr: string, t: any, lang: string) => {
 
 // --- Data & Constants ---
 const STORAGE_KEY_RIDES = 'alloride_rides_v5'; 
-const STORAGE_KEY_PENDING_DRIVERS = 'alloride_drivers_v3';
+const STORAGE_KEY_USERS = 'alloride_users_v1'; // Persistent user storage
 
 const MOCK_USER_TEMPLATE: UserType = {
   id: 'u1', firstName: 'Alex', lastName: 'Rivera', email: 'alex@example.com', phone: '514-555-0199', role: 'passenger', avatar: 'https://i.pravatar.cc/150?u=alex', isVerified: true, driverStatus: 'approved', documentsUploaded: { license: true, insurance: true, photo: true }, rating: 4.9, totalRides: 142,
   vehicle: { make: "Toyota", model: "RAV4", year: "2023", color: "Midnight Black", plate: "K29 4F2" }
-};
-
-const CITIES_AND_SPOTS: Record<string, Record<string, string[]>> = {
-  "QC": {
-    "Montréal": ["Berri-UQAM", "Côte-Vertu", "Radisson", "Trudeau Airport"],
-    "Québec": ["Ste-Foy", "Gare du Palais"],
-    "Gatineau": ["Promenades", "Portage"]
-  },
-  "ON": {
-    "Toronto": ["Union Station", "Yorkdale", "Pearson Airport"],
-    "Ottawa": ["Rideau", "Bayshore", "Train Station"]
-  }
 };
 
 // --- Shared Components ---
@@ -101,7 +98,8 @@ const Button = ({ children, onClick, variant = 'primary', className = '', fullWi
   const variants: any = {
     primary: "bg-gradient-to-r from-primary to-primaryDark text-white shadow-indigo-500/30",
     secondary: "bg-white text-slate-800 border border-slate-100 shadow-slate-200/50",
-    danger: "bg-red-50 text-red-600 hover:bg-red-100"
+    danger: "bg-red-50 text-red-600 hover:bg-red-100",
+    outline: "border-2 border-slate-200 text-slate-600 hover:bg-slate-50"
   };
   return (
     <button onClick={onClick} disabled={disabled} className={`${baseStyle} ${variants[variant]} ${fullWidth ? 'w-full' : ''} ${className}`}>
@@ -188,30 +186,57 @@ const AuthView = ({ onLogin, lang, setLang }: any) => {
 
   const handleAuth = (e: React.FormEvent) => {
       e.preventDefault();
+      
       // Admin Backdoor
       if (email === 'admin@alloride.com' && password === 'admin') {
           onLogin({ ...MOCK_USER_TEMPLATE, id: 'admin', role: 'admin', firstName: 'Admin', lastName: 'User' });
           return;
       }
       
-      const newUser: UserType = {
-          ...MOCK_USER_TEMPLATE,
-          id: `u-${Date.now()}`,
-          role,
-          email,
-          firstName: isLogin ? 'Alex' : firstName,
-          lastName: isLogin ? 'Rivera' : lastName,
-          phone: isLogin ? '555-0199' : phone,
-          avatar: isLogin ? 'https://i.pravatar.cc/150?u=alex' : '',
-          driverStatus: role === 'driver' ? 'new' : undefined,
-          isVerified: role === 'passenger'
-      };
-      
-      if (role === 'driver') {
-          newUser.isVerified = false;
-          newUser.documentsUploaded = { license: false, insurance: false, photo: false };
+      // Load users from storage
+      const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+      const existingUser = storedUsers.find((u: UserType) => u.email === email);
+
+      if (isLogin) {
+          if (existingUser) {
+              // Only simple password check simulation for now
+              onLogin(existingUser);
+          } else {
+              // Create a temp user if they just try to log in (for demo convenience) or show error
+              // For demo smoothness, we'll allow creating a new user on login if not found but ideally should be error
+              alert("User not found. Please sign up first.");
+              setIsLogin(false);
+          }
+      } else {
+          // Sign Up
+          if (existingUser) {
+              alert("User already exists. Logging in.");
+              onLogin(existingUser);
+              return;
+          }
+
+          const newUser: UserType = {
+              ...MOCK_USER_TEMPLATE,
+              id: `u-${Date.now()}`,
+              role,
+              email,
+              firstName: firstName,
+              lastName: lastName,
+              phone: phone,
+              avatar: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random`,
+              driverStatus: role === 'driver' ? 'new' : undefined,
+              isVerified: role === 'passenger'
+          };
+          
+          if (role === 'driver') {
+              newUser.isVerified = false;
+              newUser.documentsUploaded = { license: false, insurance: false, photo: false };
+          }
+          
+          // Save new user
+          localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify([...storedUsers, newUser]));
+          onLogin(newUser);
       }
-      onLogin(newUser);
   };
 
   return (
@@ -281,9 +306,10 @@ const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
         };
         updateUser(updated);
         
-        // Save to pending storage
-        const existing = JSON.parse(localStorage.getItem(STORAGE_KEY_PENDING_DRIVERS) || '[]');
-        localStorage.setItem(STORAGE_KEY_PENDING_DRIVERS, JSON.stringify([...existing.filter((u:any) => u.id !== user.id), updated]));
+        // Update user in storage
+        const users = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+        const updatedUsers = users.map((u: UserType) => u.id === user.id ? updated : u);
+        localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
         
         onComplete();
     };
@@ -509,15 +535,17 @@ const AdminView = ({ setView, onVerify, allRides, onDeleteRide }: any) => {
     const [pending, setPending] = useState<any[]>([]);
 
     useEffect(() => {
-        const p = JSON.parse(localStorage.getItem(STORAGE_KEY_PENDING_DRIVERS) || '[]');
-        setPending(p);
+        // Load pending drivers from the persistent users list
+        const users = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+        const pendingDrivers = users.filter((u: UserType) => u.role === 'driver' && u.driverStatus === 'pending');
+        setPending(pendingDrivers);
     }, []);
 
     const handleApprove = (driver: any) => {
         onVerify(driver.id);
         const newPending = pending.filter(d => d.id !== driver.id);
         setPending(newPending);
-        localStorage.setItem(STORAGE_KEY_PENDING_DRIVERS, JSON.stringify(newPending));
+        // Ensure UI updates immediately
     };
 
     return (
@@ -541,12 +569,24 @@ const AdminView = ({ setView, onVerify, allRides, onDeleteRide }: any) => {
                                 </div>
                                 <div className="grid grid-cols-3 gap-2 mb-4">
                                     {['license', 'insurance', 'photo'].map(k => (
-                                        <div key={k} className="h-16 bg-slate-100 rounded-lg overflow-hidden border">
-                                            {d.documentsData[k] ? <img src={d.documentsData[k]} className="w-full h-full object-cover" /> : <div className="flex items-center justify-center h-full text-xs">No Doc</div>}
+                                        <div key={k} className="relative group h-20 bg-slate-100 rounded-lg overflow-hidden border">
+                                            {d.documentsData[k] ? (
+                                                <>
+                                                    <img src={d.documentsData[k]} className="w-full h-full object-cover" />
+                                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => downloadBase64(d.documentsData[k], `${d.firstName}_${k}.jpg`)}>
+                                                        <Download size={20} className="text-white"/>
+                                                    </div>
+                                                </>
+                                            ) : <div className="flex items-center justify-center h-full text-xs">No Doc</div>}
                                         </div>
                                     ))}
                                 </div>
-                                <Button onClick={() => handleApprove(d)} className="py-2 text-sm">Approve Driver</Button>
+                                <div className="flex justify-end">
+                                    <div className="text-xs text-slate-400 mr-auto flex items-center">
+                                        <Download size={14} className="mr-1" /> Tap image to download
+                                    </div>
+                                    <Button onClick={() => handleApprove(d)} className="py-2 text-sm px-6">Approve Driver</Button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -594,14 +634,17 @@ export const App = () => {
         const stored = localStorage.getItem(STORAGE_KEY_RIDES);
         if (stored) {
              setAllRides(JSON.parse(stored).map((r:any) => ({...r, departureTime: new Date(r.departureTime), arrivalTime: new Date(r.arrivalTime)})));
-        } else {
-             // Mock data logic removed for brevity, normally goes here
         }
     }, []);
 
     const handleLogin = (u: UserType) => {
         setUser(u);
         setView(u.role === 'admin' ? 'admin' : 'home');
+    };
+
+    const handleLogout = () => {
+        setUser(null);
+        setView('auth');
     };
 
     const handlePublish = (ride: Ride) => {
@@ -628,9 +671,17 @@ export const App = () => {
     };
 
     const handleAdminVerify = (driverId: string) => {
+        // Update persistent user store
+        const users = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+        const updatedUsers = users.map((u: UserType) => {
+            if (u.id === driverId) {
+                return { ...u, driverStatus: 'approved', isVerified: true };
+            }
+            return u;
+        });
+        localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
+        
         alert("Driver Verified! They can now post trips.");
-        // In a real app, you would update the specific user record in a database
-        // Here we just alert. If the current user was that driver, we'd update state.
     };
 
     if (view === 'auth') return <AuthView onLogin={handleLogin} lang={lang} setLang={setLang} />;
@@ -643,8 +694,19 @@ export const App = () => {
             {view === 'ride-detail' && detailRide && <RideDetailView ride={detailRide} user={user} onBack={() => setView('home')} onBook={handleBook} bookedRides={bookedRides} lang={lang} />}
             {view === 'post' && <PostRideView user={user} onPublish={handlePublish} setView={setView} lang={lang} />}
             {view === 'admin' && <AdminView setView={setView} onVerify={handleAdminVerify} allRides={allRides} onDeleteRide={handleDeleteRide} />}
+            {view === 'profile' && (
+                <div className="p-6 pt-12">
+                    <Header title="Profile" rightAction={<button onClick={handleLogout}><LogOut size={20} className="text-red-500"/></button>}/>
+                    <div className="bg-white p-6 rounded-3xl shadow-sm text-center">
+                        <img src={user.avatar} className="w-24 h-24 rounded-full mx-auto mb-4 bg-slate-200" />
+                        <h2 className="text-xl font-bold">{user.firstName} {user.lastName}</h2>
+                        <p className="text-slate-400 mb-6">{user.email}</p>
+                        <Button onClick={handleLogout} variant="danger" className="w-full">Sign Out</Button>
+                    </div>
+                </div>
+            )}
             
-            {view !== 'ride-detail' && view !== 'auth' && (
+            {view !== 'ride-detail' && view !== 'auth' && view !== 'profile' && (
                 <Navigation currentView={view} setView={setView} lang={lang} userRole={user.role} />
             )}
         </div>
