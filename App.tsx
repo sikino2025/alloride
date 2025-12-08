@@ -83,7 +83,7 @@ const getDisplayDate = (dateStr: string, t: any, lang: string) => {
 };
 
 // --- Data & Constants ---
-const STORAGE_KEY_RIDES = 'alloride_rides_v7'; 
+const STORAGE_KEY_RIDES = 'alloride_rides_v8'; 
 const STORAGE_KEY_USERS = 'alloride_users_v1';
 
 const MOCK_USER_TEMPLATE: UserType = {
@@ -866,7 +866,10 @@ const AdminView = ({ setView, onVerify, allRides, onDeleteRide }: any) => {
                                         </span>
                                         <span className="text-xs text-slate-400">{ride.id.slice(0,8)}</span>
                                     </div>
-                                    <span className="font-bold text-sm">${ride.price}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-bold text-sm">${ride.price}</span>
+                                        <button className="text-red-400 p-1 hover:bg-red-50 rounded" onClick={() => onDeleteRide(ride.id)}><Trash2 size={14}/></button>
+                                    </div>
                                 </div>
                                 <div className="font-bold text-slate-900 text-sm mb-2">{ride.origin} → {ride.destination}</div>
                                 <div className="flex justify-between items-center text-xs text-slate-500 border-t border-slate-50 pt-2">
