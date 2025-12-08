@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Navigation } from './components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from './types';
 import { translations, Language } from './utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map } from 'lucide-react';
 import { LeaderboardChart } from './components/LeaderboardChart';
 import { getStaticMapUrl } from './services/geminiService';
 import { Logo } from './components/Logo';
@@ -83,12 +83,83 @@ const getDisplayDate = (dateStr: string, t: any, lang: string) => {
 };
 
 // --- Data & Constants ---
-const STORAGE_KEY_RIDES = 'alloride_rides_v5'; 
-const STORAGE_KEY_USERS = 'alloride_users_v1'; // Persistent user storage
+const STORAGE_KEY_RIDES = 'alloride_rides_v7'; 
+const STORAGE_KEY_USERS = 'alloride_users_v1';
 
 const MOCK_USER_TEMPLATE: UserType = {
   id: 'u1', firstName: 'Alex', lastName: 'Rivera', email: 'alex@example.com', phone: '514-555-0199', role: 'passenger', avatar: 'https://i.pravatar.cc/150?u=alex', isVerified: true, driverStatus: 'approved', documentsUploaded: { license: true, insurance: true, photo: true }, rating: 4.9, totalRides: 142,
   vehicle: { make: "Toyota", model: "RAV4", year: "2023", color: "Midnight Black", plate: "K29 4F2" }
+};
+
+const CITIES_AND_SPOTS: Record<string, Record<string, string[]>> = {
+  "QC": {
+    "Montreal": ["Berri-UQAM", "Radisson", "Trudeau Airport", "Côte-Vertu", "Downtown", "McGill University", "Concordia"],
+    "Quebec City": ["Gare du Palais", "Sainte-Foy", "Université Laval", "Old Quebec", "Les Galeries"],
+    "Sherbrooke": ["Université de Sherbrooke", "Carrefour de l'Estrie", "Downtown"],
+    "Gatineau": ["Promenades Gatineau", "Place du Portage", "Museum of History"],
+    "Trois-Rivieres": ["Gare d'autocars", "UQTR", "Downtown"],
+    "Laval": ["Montmorency Metro", "Carrefour Laval"],
+    "Longueuil": ["Longueuil Metro", "Place Longueuil"]
+  },
+  "ON": {
+    "Toronto": ["Union Station", "Pearson Airport", "Yorkdale Mall", "Scarborough Town Centre", "CN Tower"],
+    "Ottawa": ["Rideau Centre", "Train Station", "Bayshore", "Kanata", "Parliament Hill"],
+    "Kingston": ["Queens University", "Bus Terminal", "Downtown"],
+    "Mississauga": ["Square One", "Port Credit"],
+    "London": ["Western University", "Masonville Place"]
+  }
+};
+
+const generateMockRides = (): Ride[] => {
+    const rides: Ride[] = [];
+    const drivers = [
+        { id: 'd1', firstName: 'Jean', lastName: 'Tremblay', avatar: 'https://i.pravatar.cc/150?u=jean', rating: 4.8 },
+        { id: 'd2', firstName: 'Sarah', lastName: 'Connor', avatar: 'https://i.pravatar.cc/150?u=sarah', rating: 4.9 },
+        { id: 'd3', firstName: 'Mike', lastName: 'Ross', avatar: 'https://i.pravatar.cc/150?u=mike', rating: 4.7 },
+        { id: 'd4', firstName: 'Amelie', lastName: 'Poulain', avatar: 'https://i.pravatar.cc/150?u=amelie', rating: 5.0 },
+        { id: 'd5', firstName: 'David', lastName: 'Beck', avatar: 'https://i.pravatar.cc/150?u=david', rating: 4.6 }
+    ];
+
+    const routes = [
+        { origin: 'Montreal, QC', dest: 'Quebec City, QC' },
+        { origin: 'Montreal, QC', dest: 'Toronto, ON' },
+        { origin: 'Ottawa, ON', dest: 'Montreal, QC' },
+        { origin: 'Quebec City, QC', dest: 'Sherbrooke, QC' },
+        { origin: 'Toronto, ON', dest: 'Kingston, ON' }
+    ];
+
+    for (let i = 0; i < 25; i++) {
+        const route = routes[Math.floor(Math.random() * routes.length)];
+        const driver = drivers[Math.floor(Math.random() * drivers.length)];
+        
+        const date = new Date();
+        // Random date within next 7 days
+        date.setDate(date.getDate() + Math.floor(Math.random() * 7));
+        // Random hour between 7am and 8pm
+        date.setHours(7 + Math.floor(Math.random() * 14), [0, 15, 30, 45][Math.floor(Math.random() * 4)], 0, 0);
+        
+        // Duration between 2 and 6 hours
+        const arrival = new Date(date.getTime() + (2 + Math.random() * 4) * 3600000);
+
+        rides.push({
+            id: `mock-${i}-${Date.now()}`,
+            driver: { ...MOCK_USER_TEMPLATE, ...driver, role: 'driver', id: driver.id } as UserType,
+            origin: route.origin,
+            destination: route.dest,
+            price: 25 + Math.floor(Math.random() * 40),
+            seatsAvailable: 1 + Math.floor(Math.random() * 3),
+            totalSeats: 4,
+            departureTime: date,
+            arrivalTime: arrival,
+            stops: [],
+            currency: 'CAD',
+            luggage: { small: 1, medium: 1, large: 0 },
+            distanceKm: 250,
+            features: { instantBook: Math.random() > 0.3, music: true, pets: false, smoking: false, wifi: Math.random() > 0.5, winterTires: true }
+        });
+    }
+    // Sort by date
+    return rides.sort((a,b) => a.departureTime.getTime() - b.departureTime.getTime());
 };
 
 // --- Shared Components ---
@@ -117,6 +188,110 @@ const Header = ({ title, subtitle, rightAction }: any) => (
     {rightAction}
   </div>
 );
+
+const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvince }: any) => {
+    const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+    const [spotSuggestions, setSpotSuggestions] = useState<string[]>([]);
+    const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+    const [showSpotSuggestions, setShowSpotSuggestions] = useState(false);
+
+    // Filter cities based on province and input
+    const handleCityChange = (val: string) => {
+        setCity(val);
+        setSpot(''); // Reset spot when city changes
+        if (province && CITIES_AND_SPOTS[province]) {
+            const cities = Object.keys(CITIES_AND_SPOTS[province]);
+            const filtered = cities.filter(c => c.toLowerCase().includes(val.toLowerCase()));
+            setCitySuggestions(filtered);
+            setShowCitySuggestions(true);
+        }
+    };
+
+    const handleCitySelect = (val: string) => {
+        setCity(val);
+        setShowCitySuggestions(false);
+        // Pre-load spots for this city
+        if (province && CITIES_AND_SPOTS[province][val]) {
+            setSpotSuggestions(CITIES_AND_SPOTS[province][val]);
+        }
+    };
+
+    // Filter spots
+    const handleSpotChange = (val: string) => {
+        setSpot(val);
+        if (province && city && CITIES_AND_SPOTS[province] && CITIES_AND_SPOTS[province][city]) {
+            const spots = CITIES_AND_SPOTS[province][city];
+            const filtered = spots.filter(s => s.toLowerCase().includes(val.toLowerCase()));
+            setSpotSuggestions(filtered);
+            setShowSpotSuggestions(true);
+        }
+    };
+
+    const handleSpotSelect = (val: string) => {
+        setSpot(val);
+        setShowSpotSuggestions(false);
+    };
+
+    return (
+        <div className="bg-slate-50 p-3 rounded-xl mb-2">
+            <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">{label}</label>
+            <div className="flex gap-2">
+                {/* Province Select */}
+                <div className="relative w-1/4">
+                    <select 
+                        value={province} 
+                        onChange={(e) => { setProvince(e.target.value); setCity(''); setSpot(''); }} 
+                        className="w-full p-3 bg-white rounded-lg font-bold text-sm appearance-none outline-none border border-slate-200 focus:border-primary"
+                    >
+                        {Object.keys(CITIES_AND_SPOTS).map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
+                </div>
+
+                {/* City Input */}
+                <div className="relative w-2/5">
+                    <input 
+                        value={city} 
+                        onChange={(e) => handleCityChange(e.target.value)} 
+                        placeholder="City"
+                        className="w-full p-3 bg-white rounded-lg font-bold text-sm outline-none border border-slate-200 focus:border-primary"
+                        onFocus={() => { if(province) handleCityChange(city); }}
+                    />
+                    {showCitySuggestions && citySuggestions.length > 0 && (
+                        <div className="absolute top-full left-0 w-full bg-white shadow-lg rounded-lg mt-1 z-20 max-h-40 overflow-y-auto border border-slate-100">
+                            {citySuggestions.map(s => (
+                                <div key={s} onClick={() => handleCitySelect(s)} className="p-2 hover:bg-slate-50 cursor-pointer text-sm">
+                                    {s}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Spot Input */}
+                <div className="relative w-2/5">
+                    <input 
+                        value={spot} 
+                        onChange={(e) => handleSpotChange(e.target.value)} 
+                        placeholder="Spot (Optional)"
+                        className="w-full p-3 bg-white rounded-lg font-bold text-sm outline-none border border-slate-200 focus:border-primary"
+                        onFocus={() => handleSpotChange(spot)}
+                        disabled={!city}
+                    />
+                    {showSpotSuggestions && spotSuggestions.length > 0 && (
+                        <div className="absolute top-full left-0 w-full bg-white shadow-lg rounded-lg mt-1 z-20 max-h-40 overflow-y-auto border border-slate-100">
+                            {spotSuggestions.map(s => (
+                                <div key={s} onClick={() => handleSpotSelect(s)} className="p-2 hover:bg-slate-50 cursor-pointer text-sm">
+                                    {s}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const RideCard = ({ ride, onClick, t, lang, isPast = false }: any) => {
   const startTime = ride.departureTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -199,11 +374,8 @@ const AuthView = ({ onLogin, lang, setLang }: any) => {
 
       if (isLogin) {
           if (existingUser) {
-              // Only simple password check simulation for now
               onLogin(existingUser);
           } else {
-              // Create a temp user if they just try to log in (for demo convenience) or show error
-              // For demo smoothness, we'll allow creating a new user on login if not found but ideally should be error
               alert("User not found. Please sign up first.");
               setIsLogin(false);
           }
@@ -415,7 +587,17 @@ const HomeView = ({ user, allRides, bookedRides, setDetailRide, setView, lang }:
 
 const PostRideView = ({ user, onPublish, setView, lang, refreshUser }: any) => {
     const t = translations[lang];
-    const [form, setForm] = useState({ origin: 'Montreal, QC', destination: 'Quebec, QC', price: 45, seats: 3, date: toLocalISOString(new Date()), time: '09:00' });
+    const [form, setForm] = useState({ price: 45, seats: 3, date: toLocalISOString(new Date()), time: '09:00' });
+    
+    // Origin state
+    const [originProv, setOriginProv] = useState('QC');
+    const [originCity, setOriginCity] = useState('');
+    const [originSpot, setOriginSpot] = useState('');
+
+    // Dest state
+    const [destProv, setDestProv] = useState('QC');
+    const [destCity, setDestCity] = useState('');
+    const [destSpot, setDestSpot] = useState('');
 
     // STRICT APPROVAL CHECK
     if (user.driverStatus !== 'approved') {
@@ -435,13 +617,22 @@ const PostRideView = ({ user, onPublish, setView, lang, refreshUser }: any) => {
     }
 
     const handleSubmit = () => {
+        if (!originCity || !destCity) {
+            alert("Please select both origin and destination cities.");
+            return;
+        }
+
         const departure = new Date(`${form.date}T${form.time}`);
-        const arrival = new Date(departure.getTime() + 10800000); // +3h
+        const arrival = new Date(departure.getTime() + 10800000); // +3h approx
+        
+        const originStr = originSpot ? `${originCity} (${originSpot}), ${originProv}` : `${originCity}, ${originProv}`;
+        const destStr = destSpot ? `${destCity} (${destSpot}), ${destProv}` : `${destCity}, ${destProv}`;
+
         const newRide: Ride = {
             id: `ride-${Date.now()}`,
             driver: user,
-            origin: form.origin,
-            destination: form.destination,
+            origin: originStr,
+            destination: destStr,
             price: Number(form.price),
             seatsAvailable: Number(form.seats),
             totalSeats: Number(form.seats),
@@ -458,15 +649,31 @@ const PostRideView = ({ user, onPublish, setView, lang, refreshUser }: any) => {
         <div className="h-full bg-slate-50 p-6 pt-12 pb-32 overflow-y-auto">
             <Header title={t.postRide} />
             <div className="bg-white p-6 rounded-[2rem] shadow-sm space-y-4">
-                <input value={form.origin} onChange={e => setForm({...form, origin: e.target.value})} className="w-full p-4 bg-slate-50 rounded-xl font-bold" placeholder="Origin" />
-                <input value={form.destination} onChange={e => setForm({...form, destination: e.target.value})} className="w-full p-4 bg-slate-50 rounded-xl font-bold" placeholder="Destination" />
+                <LocationInput 
+                    label="Origin" 
+                    province={originProv} setProvince={setOriginProv}
+                    city={originCity} setCity={setOriginCity}
+                    spot={originSpot} setSpot={setOriginSpot}
+                />
+                
+                <div className="flex justify-center -my-2 relative z-10">
+                   <div className="bg-slate-100 p-2 rounded-full"><ArrowRight className="rotate-90 text-slate-400" size={16}/></div>
+                </div>
+
+                <LocationInput 
+                    label="Destination" 
+                    province={destProv} setProvince={setDestProv}
+                    city={destCity} setCity={setDestCity}
+                    spot={destSpot} setSpot={setDestSpot}
+                />
+
                 <div className="flex gap-4">
-                    <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full p-4 bg-slate-50 rounded-xl font-bold" />
-                    <input type="time" value={form.time} onChange={e => setForm({...form, time: e.target.value})} className="w-full p-4 bg-slate-50 rounded-xl font-bold" />
+                    <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none" />
+                    <input type="time" value={form.time} onChange={e => setForm({...form, time: e.target.value})} className="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none" />
                 </div>
                 <div className="flex gap-4">
-                    <input type="number" value={form.price} onChange={e => setForm({...form, price: Number(e.target.value)})} className="w-full p-4 bg-slate-50 rounded-xl font-bold" placeholder="Price $" />
-                    <input type="number" value={form.seats} onChange={e => setForm({...form, seats: Number(e.target.value)})} className="w-full p-4 bg-slate-50 rounded-xl font-bold" placeholder="Seats" />
+                    <input type="number" value={form.price} onChange={e => setForm({...form, price: Number(e.target.value)})} className="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none" placeholder="Price $" />
+                    <input type="number" value={form.seats} onChange={e => setForm({...form, seats: Number(e.target.value)})} className="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none" placeholder="Seats" />
                 </div>
             </div>
             <Button onClick={handleSubmit} className="mt-6">{t.publishRide}</Button>
@@ -500,31 +707,54 @@ const RideDetailView = ({ ride, user, onBack, onBook, bookedRides, lang }: any) 
                     <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl mb-6">
                         <img src={ride.driver.avatar} className="w-12 h-12 rounded-full bg-slate-200 object-cover" />
                         <div>
-                            <div className="font-bold">{ride.driver.firstName}</div>
+                            <div className="font-bold">{ride.driver.firstName} {ride.driver.lastName}</div>
                             <div className="text-xs text-slate-500 font-bold flex items-center gap-1"><Star size={10} className="fill-yellow-400 text-yellow-400"/> {ride.driver.rating}</div>
                         </div>
                     </div>
 
+                    <div className="space-y-4 mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center"><MapPin size={16}/></div>
+                            <div>
+                                <div className="text-xs text-slate-400 uppercase font-bold">Origin</div>
+                                <div className="font-bold text-sm">{ride.origin}</div>
+                            </div>
+                        </div>
+                         <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-pink-50 text-pink-600 flex items-center justify-center"><MapPin size={16}/></div>
+                            <div>
+                                <div className="text-xs text-slate-400 uppercase font-bold">Destination</div>
+                                <div className="font-bold text-sm">{ride.destination}</div>
+                            </div>
+                        </div>
+                    </div>
+
                     {!isDriver && !isBooked && !isPast && (
-                        <Button onClick={() => onBook(ride)}>{t.bookSeat}</Button>
+                        <>
+                            <div className="flex justify-between items-center mb-4 px-2">
+                                <span className="text-sm font-bold text-slate-500">Available Seats</span>
+                                <span className="text-xl font-bold text-slate-900">{ride.seatsAvailable}</span>
+                            </div>
+                            <Button onClick={() => onBook(ride)} disabled={ride.seatsAvailable === 0}>{t.bookSeat}</Button>
+                        </>
                     )}
 
                     {isBooked && !isPast && (
-                        <div className="grid grid-cols-2 gap-3">
-                            <button className="flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-xl font-bold text-sm"><Phone size={16}/> Call</button>
-                            <button className="flex items-center justify-center gap-2 border-2 border-slate-200 text-slate-700 py-3 rounded-xl font-bold text-sm"><MessageSquare size={16}/> Text</button>
+                        <div className="grid grid-cols-2 gap-3 mt-4">
+                            <button onClick={() => alert("Calling Driver...")} className="flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-xl font-bold text-sm hover:bg-slate-800 transition-colors"><Phone size={16}/> Call</button>
+                            <button onClick={() => alert("Opening Chat...")} className="flex items-center justify-center gap-2 border-2 border-slate-200 text-slate-700 py-3 rounded-xl font-bold text-sm hover:bg-slate-50 transition-colors"><MessageSquare size={16}/> Text</button>
                         </div>
                     )}
 
                     {isBooked && isPast && (
-                        <div className="bg-slate-50 p-6 rounded-2xl text-center">
+                        <div className="bg-slate-50 p-6 rounded-2xl text-center border border-slate-100 mt-4">
                             <h3 className="font-bold mb-4">Rate your trip</h3>
                             <div className="flex justify-center gap-2 mb-4">
                                 {[1,2,3,4,5].map(s => (
-                                    <Star key={s} size={32} onClick={() => setRating(s)} className={`${s <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-slate-200'}`} />
+                                    <Star key={s} size={32} onClick={() => setRating(s)} className={`${s <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-slate-200'} cursor-pointer`} />
                                 ))}
                             </div>
-                            <Button disabled={rating === 0} onClick={() => alert("Rated!")}>Submit</Button>
+                            <Button disabled={rating === 0} onClick={() => alert("Rated Successfully!")}>Submit Rating</Button>
                         </div>
                     )}
                 </div>
@@ -534,7 +764,7 @@ const RideDetailView = ({ ride, user, onBack, onBook, bookedRides, lang }: any) 
 };
 
 const AdminView = ({ setView, onVerify, allRides, onDeleteRide }: any) => {
-    const [tab, setTab] = useState('pending'); // 'pending' | 'rides'
+    const [tab, setTab] = useState('pending'); // 'pending' | 'rides' | 'history'
     const [pending, setPending] = useState<any[]>([]);
 
     useEffect(() => {
@@ -548,16 +778,19 @@ const AdminView = ({ setView, onVerify, allRides, onDeleteRide }: any) => {
         onVerify(driver.id);
         const newPending = pending.filter(d => d.id !== driver.id);
         setPending(newPending);
-        // Ensure UI updates immediately
     };
+
+    const sortedRides = [...allRides].sort((a,b) => b.departureTime.getTime() - a.departureTime.getTime());
+    const activeRides = sortedRides.filter(r => new Date(r.arrivalTime).getTime() > Date.now());
 
     return (
         <div className="h-full bg-slate-50 p-6 pt-12 pb-32 overflow-y-auto">
             <Header title="Admin Dashboard" />
             
             <div className="flex bg-white p-1 rounded-xl mb-6 shadow-sm border border-slate-100">
-                <button onClick={() => setTab('pending')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'pending' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Approvals ({pending.length})</button>
-                <button onClick={() => setTab('rides')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'rides' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Live Traffic ({allRides.length})</button>
+                <button onClick={() => setTab('pending')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'pending' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Approvals ({pending.length})</button>
+                <button onClick={() => setTab('rides')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'rides' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Live ({activeRides.length})</button>
+                <button onClick={() => setTab('history')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'history' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>All Trips</button>
             </div>
 
             {tab === 'pending' && (
@@ -599,7 +832,7 @@ const AdminView = ({ setView, onVerify, allRides, onDeleteRide }: any) => {
 
             {tab === 'rides' && (
                 <div className="space-y-4">
-                     {allRides.length === 0 ? <p className="text-slate-400 text-center mt-10">No active trips.</p> : allRides.map((ride: Ride) => (
+                     {activeRides.length === 0 ? <p className="text-slate-400 text-center mt-10">No active trips.</p> : activeRides.map((ride: Ride) => (
                          <div key={ride.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                              <div className="flex justify-between items-center mb-3">
                                  <div>
@@ -619,6 +852,32 @@ const AdminView = ({ setView, onVerify, allRides, onDeleteRide }: any) => {
                      ))}
                 </div>
             )}
+
+            {tab === 'history' && (
+                <div className="space-y-4">
+                     {sortedRides.map((ride: Ride) => {
+                         const isPast = new Date(ride.arrivalTime).getTime() < Date.now();
+                         return (
+                            <div key={ride.id} className={`bg-white p-4 rounded-2xl shadow-sm border border-slate-100 ${isPast ? 'opacity-75' : ''}`}>
+                                <div className="flex justify-between items-center mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${isPast ? 'bg-slate-100 text-slate-500' : 'bg-green-100 text-green-700'}`}>
+                                            {isPast ? 'Completed' : 'Upcoming'}
+                                        </span>
+                                        <span className="text-xs text-slate-400">{ride.id.slice(0,8)}</span>
+                                    </div>
+                                    <span className="font-bold text-sm">${ride.price}</span>
+                                </div>
+                                <div className="font-bold text-slate-900 text-sm mb-2">{ride.origin} → {ride.destination}</div>
+                                <div className="flex justify-between items-center text-xs text-slate-500 border-t border-slate-50 pt-2">
+                                    <span>{ride.driver.firstName} {ride.driver.lastName}</span>
+                                    <span>{ride.departureTime.toLocaleDateString()}</span>
+                                </div>
+                            </div>
+                         );
+                     })}
+                </div>
+            )}
         </div>
     );
 };
@@ -632,11 +891,16 @@ export const App = () => {
     const [bookedRides, setBookedRides] = useState<Ride[]>([]);
     const [detailRide, setDetailRide] = useState<Ride|null>(null);
 
-    // Initial Load
+    // Initial Load & Mock Seeding
     useEffect(() => {
         const stored = localStorage.getItem(STORAGE_KEY_RIDES);
         if (stored) {
              setAllRides(JSON.parse(stored).map((r:any) => ({...r, departureTime: new Date(r.departureTime), arrivalTime: new Date(r.arrivalTime)})));
+        } else {
+            // Seed Mock Data if empty
+            const mocks = generateMockRides();
+            setAllRides(mocks);
+            localStorage.setItem(STORAGE_KEY_RIDES, JSON.stringify(mocks));
         }
     }, []);
 
@@ -689,13 +953,18 @@ export const App = () => {
     };
 
     const handleBook = (ride: Ride) => {
+        // Immediate Update: Decrement seats on the ride in the main list
         const updatedRides = allRides.map(r => r.id === ride.id ? {...r, seatsAvailable: r.seatsAvailable - 1} : r);
         setAllRides(updatedRides);
         localStorage.setItem(STORAGE_KEY_RIDES, JSON.stringify(updatedRides));
         
+        // Immediate Update: Create booking object
         const booking = {...ride, seatsAvailable: ride.seatsAvailable - 1, bookedSeats: 1};
         setBookedRides([...bookedRides, booking]);
+        
+        // Immediate Update: Update the detailed view to reflect changes
         setDetailRide(booking);
+        
         alert("Booked!");
     };
 
