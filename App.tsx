@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Navigation } from './components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from './types';
 import { translations, Language } from './utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users } from 'lucide-react';
 import { LeaderboardChart } from './components/LeaderboardChart';
 import { getStaticMapUrl } from './services/geminiService';
 import { Logo } from './components/Logo';
@@ -91,23 +91,77 @@ const MOCK_USER_TEMPLATE: UserType = {
   vehicle: { make: "Toyota", model: "RAV4", year: "2023", color: "Midnight Black", plate: "K29 4F2" }
 };
 
+// Extended City and Spot Data for all Canadian Provinces
 const CITIES_AND_SPOTS: Record<string, Record<string, string[]>> = {
   "QC": {
-    "Montreal": ["Berri-UQAM", "Radisson", "Trudeau Airport", "Côte-Vertu", "Downtown", "McGill University", "Concordia"],
-    "Quebec City": ["Gare du Palais", "Sainte-Foy", "Université Laval", "Old Quebec", "Les Galeries"],
-    "Sherbrooke": ["Université de Sherbrooke", "Carrefour de l'Estrie", "Downtown"],
-    "Gatineau": ["Promenades Gatineau", "Place du Portage", "Museum of History"],
-    "Trois-Rivieres": ["Gare d'autocars", "UQTR", "Downtown"],
-    "Laval": ["Montmorency Metro", "Carrefour Laval"],
-    "Longueuil": ["Longueuil Metro", "Place Longueuil"]
+    "Montreal": ["Berri-UQAM Metro", "Radisson Metro", "Trudeau Airport (YUL)", "Côte-Vertu Metro", "Namur Metro", "McGill University", "Concordia University", "Complexe Desjardins"],
+    "Quebec City": ["Gare du Palais", "Sainte-Foy Bus Terminal", "Université Laval", "Old Quebec", "Les Galeries de la Capitale", "Gare de Sainte-Foy"],
+    "Sherbrooke": ["Université de Sherbrooke", "Carrefour de l'Estrie", "Terminus Sherbrooke", "Bishop's University"],
+    "Gatineau": ["Promenades Gatineau", "Place du Portage", "Museum of History", "Cegep de l'Outaouais"],
+    "Trois-Rivieres": ["Gare d'autocars", "UQTR", "Centre Les Rivières"],
+    "Laval": ["Montmorency Metro", "Carrefour Laval", "Centropolis"],
+    "Longueuil": ["Longueuil Metro", "Place Longueuil", "Cégep Édouard-Montpetit"]
   },
   "ON": {
-    "Toronto": ["Union Station", "Pearson Airport", "Yorkdale Mall", "Scarborough Town Centre", "CN Tower"],
-    "Ottawa": ["Rideau Centre", "Train Station", "Bayshore", "Kanata", "Parliament Hill"],
-    "Kingston": ["Queens University", "Bus Terminal", "Downtown"],
-    "Mississauga": ["Square One", "Port Credit"],
-    "London": ["Western University", "Masonville Place"]
+    "Toronto": ["Union Station", "Pearson Airport (YYZ)", "Yorkdale Mall", "Scarborough Town Centre", "CN Tower", "Fairview Mall", "Kipling Station"],
+    "Ottawa": ["Rideau Centre", "Ottawa Train Station", "Bayshore Shopping Centre", "Kanata Centrum", "Parliament Hill", "University of Ottawa"],
+    "Kingston": ["Queens University", "Kingston Bus Terminal", "Division St. Carpool Lot"],
+    "Mississauga": ["Square One", "Port Credit GO", "Heartland Town Centre"],
+    "London": ["Western University", "Masonville Place", "White Oaks Mall"],
+    "Hamilton": ["McMaster University", "Hamilton GO Centre", "Lime Ridge Mall"],
+    "Windsor": ["University of Windsor", "Devonshire Mall"]
+  },
+  "BC": {
+    "Vancouver": ["Pacific Central Station", "UBC Bus Loop", "Waterfront Station", "YVR Airport", "Commercial-Broadway"],
+    "Victoria": ["Mayfair Shopping Centre", "UVic Bus Exchange", "Swartz Bay Ferry"],
+    "Kelowna": ["UBCO Exchange", "Orchard Park Mall"],
+    "Kamloops": ["TRU Exchange", "Aberdeen Mall"],
+    "Whistler": ["Gateway Loop", "Creekside"]
+  },
+  "AB": {
+    "Calgary": ["University of Calgary", "Chinook Centre", "Calgary Tower", "YYC Airport"],
+    "Edmonton": ["West Edmonton Mall", "University of Alberta", "Southgate Centre"],
+    "Banff": ["Banff Train Station", "High School Transit Hub"],
+    "Red Deer": ["Red Deer College", "Bower Place"]
+  },
+  "MB": {
+    "Winnipeg": ["Polo Park", "University of Manitoba", "The Forks", "YWG Airport"],
+    "Brandon": ["Brandon University", "Shoppers Mall"]
+  },
+  "SK": {
+    "Saskatoon": ["University of Saskatchewan", "Midtown Plaza"],
+    "Regina": ["University of Regina", "Cornwall Centre"]
+  },
+  "NS": {
+    "Halifax": ["Dalhousie University", "Halifax Shopping Centre", "Scotia Square"],
+    "Sydney": ["CBU", "Mayflower Mall"]
+  },
+  "NB": {
+    "Fredericton": ["UNB", "Regent Mall"],
+    "Moncton": ["Champlain Place", "Université de Moncton"],
+    "Saint John": ["McAllister Place", "UNB Saint John"]
+  },
+  "NL": {
+    "St. John's": ["Memorial University", "Avalon Mall", "YYT Airport"]
+  },
+  "PE": {
+    "Charlottetown": ["UPEI", "Confederation Centre"]
+  },
+  "YT": {
+    "Whitehorse": ["Canada Games Centre", "Erik Nielsen Airport"]
+  },
+  "NT": {
+    "Yellowknife": ["Center Square Mall", "YZF Airport"]
+  },
+  "NU": {
+    "Iqaluit": ["Northmart", "YFB Airport"]
   }
+};
+
+const PROVINCE_NAMES: Record<string, string> = {
+    "AB": "Alberta", "BC": "British Columbia", "MB": "Manitoba", "NB": "New Brunswick", 
+    "NL": "Newfoundland", "NS": "Nova Scotia", "NT": "Northwest Territories", "NU": "Nunavut",
+    "ON": "Ontario", "PE": "Prince Edward Island", "QC": "Quebec", "SK": "Saskatchewan", "YT": "Yukon"
 };
 
 const generateMockRides = (): Ride[] => {
@@ -189,11 +243,13 @@ const Header = ({ title, subtitle, rightAction }: any) => (
   </div>
 );
 
-const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvince }: any) => {
+const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvince, type = 'origin' }: any) => {
     const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
     const [spotSuggestions, setSpotSuggestions] = useState<string[]>([]);
     const [showCitySuggestions, setShowCitySuggestions] = useState(false);
-    const [showSpotSuggestions, setShowSpotSuggestions] = useState(false);
+    
+    // Derived state for better UX
+    const spotsAvailable = province && city && CITIES_AND_SPOTS[province]?.[city];
 
     // Filter cities based on province and input
     const handleCityChange = (val: string) => {
@@ -216,76 +272,77 @@ const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvi
         }
     };
 
-    // Filter spots
-    const handleSpotChange = (val: string) => {
-        setSpot(val);
-        if (province && city && CITIES_AND_SPOTS[province] && CITIES_AND_SPOTS[province][city]) {
-            const spots = CITIES_AND_SPOTS[province][city];
-            const filtered = spots.filter(s => s.toLowerCase().includes(val.toLowerCase()));
-            setSpotSuggestions(filtered);
-            setShowSpotSuggestions(true);
-        }
-    };
-
     const handleSpotSelect = (val: string) => {
         setSpot(val);
-        setShowSpotSuggestions(false);
     };
 
     return (
-        <div className="bg-slate-50 p-3 rounded-xl mb-2">
-            <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">{label}</label>
-            <div className="flex gap-2">
-                {/* Province Select */}
-                <div className="relative w-1/4">
-                    <select 
-                        value={province} 
-                        onChange={(e) => { setProvince(e.target.value); setCity(''); setSpot(''); }} 
-                        className="w-full p-3 bg-white rounded-lg font-bold text-sm appearance-none outline-none border border-slate-200 focus:border-primary"
-                    >
-                        {Object.keys(CITIES_AND_SPOTS).map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
+        <div className="relative group">
+            {/* Visual connector line for 'Origin' type */}
+            {type === 'origin' && (
+                <div className="absolute left-6 top-10 bottom-[-30px] w-0.5 border-l-2 border-dashed border-slate-300 z-0"></div>
+            )}
+            
+            <div className="flex items-start gap-3 relative z-10">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm border border-slate-100 ${type === 'origin' ? 'bg-indigo-50 text-primary' : 'bg-pink-50 text-secondary'}`}>
+                    <MapPin size={24} className={type === 'origin' ? 'fill-indigo-200' : 'fill-pink-200'} />
                 </div>
-
-                {/* City Input */}
-                <div className="relative w-2/5">
-                    <input 
-                        value={city} 
-                        onChange={(e) => handleCityChange(e.target.value)} 
-                        placeholder="City"
-                        className="w-full p-3 bg-white rounded-lg font-bold text-sm outline-none border border-slate-200 focus:border-primary"
-                        onFocus={() => { if(province) handleCityChange(city); }}
-                    />
-                    {showCitySuggestions && citySuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 w-full bg-white shadow-lg rounded-lg mt-1 z-20 max-h-40 overflow-y-auto border border-slate-100">
-                            {citySuggestions.map(s => (
-                                <div key={s} onClick={() => handleCitySelect(s)} className="p-2 hover:bg-slate-50 cursor-pointer text-sm">
-                                    {s}
-                                </div>
-                            ))}
+                
+                <div className="flex-1 space-y-3">
+                    {/* Row 1: Province & City */}
+                    <div className="flex gap-2">
+                        {/* Compact Province Select */}
+                        <div className="relative w-24 shrink-0">
+                            <select 
+                                value={province} 
+                                onChange={(e) => { setProvince(e.target.value); setCity(''); setSpot(''); }} 
+                                className="w-full h-[52px] px-3 bg-slate-50 rounded-xl font-bold text-sm appearance-none outline-none border border-transparent focus:bg-white focus:border-primary transition-all text-center"
+                            >
+                                {Object.keys(CITIES_AND_SPOTS).map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                            <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
                         </div>
-                    )}
-                </div>
 
-                {/* Spot Input */}
-                <div className="relative w-2/5">
-                    <input 
-                        value={spot} 
-                        onChange={(e) => handleSpotChange(e.target.value)} 
-                        placeholder="Spot (Optional)"
-                        className="w-full p-3 bg-white rounded-lg font-bold text-sm outline-none border border-slate-200 focus:border-primary"
-                        onFocus={() => handleSpotChange(spot)}
-                        disabled={!city}
-                    />
-                    {showSpotSuggestions && spotSuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 w-full bg-white shadow-lg rounded-lg mt-1 z-20 max-h-40 overflow-y-auto border border-slate-100">
-                            {spotSuggestions.map(s => (
-                                <div key={s} onClick={() => handleSpotSelect(s)} className="p-2 hover:bg-slate-50 cursor-pointer text-sm">
-                                    {s}
+                        {/* Main City Input */}
+                        <div className="relative flex-1">
+                            <input 
+                                value={city} 
+                                onChange={(e) => handleCityChange(e.target.value)} 
+                                placeholder={type === 'origin' ? "Leaving from (City)..." : "Going to (City)..."}
+                                className="w-full h-[52px] px-4 bg-slate-50 rounded-xl font-bold text-sm outline-none border border-transparent focus:bg-white focus:border-primary transition-all placeholder:font-normal placeholder:text-slate-400"
+                                onFocus={() => { if(province) handleCityChange(city); }}
+                            />
+                            {showCitySuggestions && citySuggestions.length > 0 && (
+                                <div className="absolute top-full left-0 w-full bg-white shadow-xl rounded-xl mt-2 z-50 max-h-48 overflow-y-auto border border-slate-100 p-1">
+                                    {citySuggestions.map(s => (
+                                        <button key={s} onClick={() => handleCitySelect(s)} className="w-full text-left p-3 hover:bg-slate-50 rounded-lg text-sm font-bold text-slate-700 flex items-center gap-2 transition-colors">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+                                            {s}
+                                        </button>
+                                    ))}
                                 </div>
-                            ))}
+                            )}
                         </div>
+                    </div>
+
+                    {/* Row 2: Specific Spot / Meeting Point */}
+                    {city && spotsAvailable && spotsAvailable.length > 0 && (
+                         <div className="relative animate-float-in">
+                            <div className="absolute top-3 left-3 text-slate-400 pointer-events-none"><NavIcon size={16}/></div>
+                            <select 
+                                value={spot}
+                                onChange={(e) => handleSpotSelect(e.target.value)}
+                                className={`w-full p-3 pl-10 pr-10 rounded-xl text-sm font-medium appearance-none outline-none border transition-all cursor-pointer
+                                    ${spot ? 'bg-indigo-50 border-indigo-200 text-indigo-900 font-bold' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'}
+                                `}
+                            >
+                                <option value="" disabled>Select a specific meeting spot...</option>
+                                {spotsAvailable.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full pointer-events-none uppercase tracking-wide">
+                                Suggested
+                            </div>
+                         </div>
                     )}
                 </div>
             </div>
@@ -646,37 +703,67 @@ const PostRideView = ({ user, onPublish, setView, lang, refreshUser }: any) => {
     };
 
     return (
-        <div className="h-full bg-slate-50 p-6 pt-12 pb-32 overflow-y-auto">
-            <Header title={t.postRide} />
-            <div className="bg-white p-6 rounded-[2rem] shadow-sm space-y-4">
-                <LocationInput 
-                    label="Origin" 
-                    province={originProv} setProvince={setOriginProv}
-                    city={originCity} setCity={setOriginCity}
-                    spot={originSpot} setSpot={setOriginSpot}
-                />
-                
-                <div className="flex justify-center -my-2 relative z-10">
-                   <div className="bg-slate-100 p-2 rounded-full"><ArrowRight className="rotate-90 text-slate-400" size={16}/></div>
+        <div className="h-full bg-slate-50 flex flex-col">
+            <div className="px-6 pt-12 pb-4">
+                 <Header title={t.postRide} subtitle="Build your journey" />
+            </div>
+            
+            <div className="flex-1 overflow-y-auto px-6 pb-32">
+                {/* Trip Builder Card */}
+                <div className="bg-white p-6 rounded-[2.5rem] shadow-card border border-slate-100 space-y-8 relative overflow-hidden">
+                    {/* Decorative Background Blur */}
+                    <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
+
+                    {/* Origin Input */}
+                    <LocationInput 
+                        type="origin"
+                        label="Origin" 
+                        province={originProv} setProvince={setOriginProv}
+                        city={originCity} setCity={setOriginCity}
+                        spot={originSpot} setSpot={setOriginSpot}
+                    />
+
+                    {/* Destination Input */}
+                    <LocationInput 
+                        type="destination"
+                        label="Destination" 
+                        province={destProv} setProvince={setDestProv}
+                        city={destCity} setCity={setDestCity}
+                        spot={destSpot} setSpot={setDestSpot}
+                    />
                 </div>
 
-                <LocationInput 
-                    label="Destination" 
-                    province={destProv} setProvince={setDestProv}
-                    city={destCity} setCity={setDestCity}
-                    spot={destSpot} setSpot={setDestSpot}
-                />
-
-                <div className="flex gap-4">
-                    <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none" />
-                    <input type="time" value={form.time} onChange={e => setForm({...form, time: e.target.value})} className="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none" />
+                {/* Details Grid */}
+                <div className="grid grid-cols-2 gap-4 mt-6">
+                     <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+                         <div className="text-slate-400 text-xs font-bold uppercase mb-2 flex items-center gap-1"><Calendar size={12}/> Date</div>
+                         <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full bg-transparent font-bold text-sm outline-none text-slate-900" />
+                     </div>
+                     <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+                         <div className="text-slate-400 text-xs font-bold uppercase mb-2 flex items-center gap-1"><Clock size={12}/> Time</div>
+                         <input type="time" value={form.time} onChange={e => setForm({...form, time: e.target.value})} className="w-full bg-transparent font-bold text-sm outline-none text-slate-900" />
+                     </div>
+                     <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+                         <div className="text-slate-400 text-xs font-bold uppercase mb-2 flex items-center gap-1"><DollarSign size={12}/> Price</div>
+                         <input type="number" value={form.price} onChange={e => setForm({...form, price: Number(e.target.value)})} className="w-full bg-transparent font-bold text-xl outline-none text-indigo-600" />
+                     </div>
+                     <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+                         <div className="text-slate-400 text-xs font-bold uppercase mb-2 flex items-center gap-1"><Users size={12}/> Seats</div>
+                         <div className="flex items-center gap-3">
+                             <button onClick={() => setForm(f => ({...f, seats: Math.max(1, f.seats - 1)}))} className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500">-</button>
+                             <span className="font-bold text-xl text-slate-900">{form.seats}</span>
+                             <button onClick={() => setForm(f => ({...f, seats: Math.min(6, f.seats + 1)}))} className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500">+</button>
+                         </div>
+                     </div>
                 </div>
-                <div className="flex gap-4">
-                    <input type="number" value={form.price} onChange={e => setForm({...form, price: Number(e.target.value)})} className="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none" placeholder="Price $" />
-                    <input type="number" value={form.seats} onChange={e => setForm({...form, seats: Number(e.target.value)})} className="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none" placeholder="Seats" />
+
+                <div className="mt-8">
+                     <Button onClick={handleSubmit} className="shadow-xl shadow-indigo-200">
+                        {t.publishRide}
+                        <ArrowRight size={18} />
+                     </Button>
                 </div>
             </div>
-            <Button onClick={handleSubmit} className="mt-6">{t.publishRide}</Button>
         </div>
     );
 };
