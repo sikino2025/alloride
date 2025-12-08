@@ -83,7 +83,7 @@ const getDisplayDate = (dateStr: string, t: any, lang: string) => {
 };
 
 // --- Data & Constants ---
-const STORAGE_KEY_RIDES = 'alloride_rides_v9'; // Incremented version to force new mock data generation
+const STORAGE_KEY_RIDES = 'alloride_rides_v9'; 
 const STORAGE_KEY_USERS = 'alloride_users_v1';
 
 const MOCK_USER_TEMPLATE: UserType = {
@@ -176,13 +176,11 @@ const generateMockRides = (): Ride[] => {
 
     const provinceKeys = Object.keys(CITIES_AND_SPOTS);
 
-    for (let i = 0; i < 35; i++) { // Increased mock count
-        // Dynamically pick route based on available data
+    for (let i = 0; i < 35; i++) { 
         const originProv = provinceKeys[Math.floor(Math.random() * provinceKeys.length)];
         const originCities = Object.keys(CITIES_AND_SPOTS[originProv]);
         const originCity = originCities[Math.floor(Math.random() * originCities.length)];
 
-        // Decide if destination is same province (80%) or different (20%)
         let destProv = originProv;
         if (Math.random() > 0.8) {
              destProv = provinceKeys[Math.floor(Math.random() * provinceKeys.length)];
@@ -191,7 +189,6 @@ const generateMockRides = (): Ride[] => {
         const destCities = Object.keys(CITIES_AND_SPOTS[destProv]);
         let destCity = destCities[Math.floor(Math.random() * destCities.length)];
 
-        // Ensure origin != dest
         let attempts = 0;
         while ((originCity === destCity && originProv === destProv) && attempts < 10) {
              destCity = destCities[Math.floor(Math.random() * destCities.length)];
@@ -201,12 +198,9 @@ const generateMockRides = (): Ride[] => {
         const driver = drivers[Math.floor(Math.random() * drivers.length)];
         
         const date = new Date();
-        // Random date within next 7 days
         date.setDate(date.getDate() + Math.floor(Math.random() * 7));
-        // Random hour between 7am and 8pm
         date.setHours(7 + Math.floor(Math.random() * 14), [0, 15, 30, 45][Math.floor(Math.random() * 4)], 0, 0);
         
-        // Duration between 2 and 6 hours
         const arrival = new Date(date.getTime() + (2 + Math.random() * 4) * 3600000);
 
         rides.push({
@@ -226,7 +220,6 @@ const generateMockRides = (): Ride[] => {
             features: { instantBook: Math.random() > 0.3, music: true, pets: false, smoking: false, wifi: Math.random() > 0.5, winterTires: true }
         });
     }
-    // Sort by date
     return rides.sort((a,b) => a.departureTime.getTime() - b.departureTime.getTime());
 };
 
@@ -259,16 +252,13 @@ const Header = ({ title, subtitle, rightAction }: any) => (
 
 const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvince, type = 'origin' }: any) => {
     const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
-    const [spotSuggestions, setSpotSuggestions] = useState<string[]>([]);
     const [showCitySuggestions, setShowCitySuggestions] = useState(false);
     
-    // Derived state for better UX
     const spotsAvailable = province && city && CITIES_AND_SPOTS[province]?.[city];
 
-    // Filter cities based on province and input
     const handleCityChange = (val: string) => {
         setCity(val);
-        setSpot(''); // Reset spot when city changes
+        setSpot('');
         if (province && CITIES_AND_SPOTS[province]) {
             const cities = Object.keys(CITIES_AND_SPOTS[province]);
             const filtered = cities.filter(c => c.toLowerCase().includes(val.toLowerCase()));
@@ -280,10 +270,6 @@ const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvi
     const handleCitySelect = (val: string) => {
         setCity(val);
         setShowCitySuggestions(false);
-        // Pre-load spots for this city
-        if (province && CITIES_AND_SPOTS[province][val]) {
-            setSpotSuggestions(CITIES_AND_SPOTS[province][val]);
-        }
     };
 
     const handleSpotSelect = (val: string) => {
@@ -292,47 +278,50 @@ const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvi
 
     return (
         <div className="relative group">
-            {/* Visual connector line for 'Origin' type */}
+            {/* Visual connector */}
             {type === 'origin' && (
-                <div className="absolute left-6 top-10 bottom-[-30px] w-0.5 border-l-2 border-dashed border-slate-300 z-0"></div>
+                <div className="absolute left-[22px] top-12 bottom-[-40px] w-[2px] border-l-2 border-dashed border-slate-200 z-0"></div>
             )}
             
-            <div className="flex items-start gap-3 relative z-10">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm border border-slate-100 ${type === 'origin' ? 'bg-indigo-50 text-primary' : 'bg-pink-50 text-secondary'}`}>
-                    <MapPin size={24} className={type === 'origin' ? 'fill-indigo-200' : 'fill-pink-200'} />
+            <div className="flex items-start gap-4 relative z-10">
+                {/* Icon */}
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 shadow-sm border-2 ${type === 'origin' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-pink-50 border-pink-100 text-pink-600'}`}>
+                    <div className={`w-3 h-3 rounded-full ${type === 'origin' ? 'bg-indigo-600' : 'bg-pink-600'}`}></div>
                 </div>
                 
-                <div className="flex-1 space-y-3">
+                <div className="flex-1 space-y-3 pt-1">
                     {/* Row 1: Province & City */}
                     <div className="flex gap-2">
-                        {/* Compact Province Select */}
-                        <div className="relative w-32 shrink-0">
-                            <select 
+                        {/* Province */}
+                        <div className="relative w-32 shrink-0 group/prov">
+                             <div className="absolute inset-0 bg-slate-50 rounded-xl border border-slate-100 transition-colors group-hover/prov:bg-white group-hover/prov:border-slate-200"></div>
+                             <select 
                                 value={province} 
                                 onChange={(e) => { setProvince(e.target.value); setCity(''); setSpot(''); }} 
-                                className="w-full h-[52px] px-3 bg-slate-50 rounded-xl font-bold text-xs appearance-none outline-none border border-transparent focus:bg-white focus:border-primary transition-all text-left truncate pr-6"
+                                className="relative w-full h-[52px] px-3 bg-transparent rounded-xl font-bold text-xs appearance-none outline-none text-slate-700 cursor-pointer z-10 truncate pr-6"
                             >
                                 {Object.keys(CITIES_AND_SPOTS).map(p => (
                                     <option key={p} value={p}>{PROVINCE_NAMES[p] || p}</option>
                                 ))}
                             </select>
-                            <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
+                            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10"/>
                         </div>
 
-                        {/* Main City Input */}
-                        <div className="relative flex-1">
+                        {/* City */}
+                        <div className="relative flex-1 group/city">
                             <input 
                                 value={city} 
                                 onChange={(e) => handleCityChange(e.target.value)} 
                                 placeholder={type === 'origin' ? "City (Leaving)..." : "City (Going)..."}
-                                className="w-full h-[52px] px-4 bg-slate-50 rounded-xl font-bold text-sm outline-none border border-transparent focus:bg-white focus:border-primary transition-all placeholder:font-normal placeholder:text-slate-400"
+                                className="w-full h-[52px] px-4 bg-slate-50 border border-slate-100 rounded-xl font-bold text-sm outline-none focus:bg-white focus:border-primary transition-all placeholder:font-normal placeholder:text-slate-400 text-slate-900"
                                 onFocus={() => { if(province) handleCityChange(city); }}
                             />
+                            {/* Suggestions Dropdown */}
                             {showCitySuggestions && citySuggestions.length > 0 && (
                                 <div className="absolute top-full left-0 w-full bg-white shadow-xl rounded-xl mt-2 z-50 max-h-48 overflow-y-auto border border-slate-100 p-1">
                                     {citySuggestions.map(s => (
                                         <button key={s} onClick={() => handleCitySelect(s)} className="w-full text-left p-3 hover:bg-slate-50 rounded-lg text-sm font-bold text-slate-700 flex items-center gap-2 transition-colors">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+                                            <MapPin size={14} className="text-slate-300"/>
                                             {s}
                                         </button>
                                     ))}
@@ -341,22 +330,33 @@ const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvi
                         </div>
                     </div>
 
-                    {/* Row 2: Specific Spot / Meeting Point */}
+                    {/* Row 2: Spot Selector - Styled like Amigo / Poparide Screenshot */}
                     {city && spotsAvailable && spotsAvailable.length > 0 && (
                          <div className="relative animate-float-in">
-                            <div className="absolute top-3 left-3 text-slate-400 pointer-events-none"><NavIcon size={16}/></div>
-                            <select 
-                                value={spot}
-                                onChange={(e) => handleSpotSelect(e.target.value)}
-                                className={`w-full p-3 pl-10 pr-10 rounded-xl text-sm font-medium appearance-none outline-none border transition-all cursor-pointer
-                                    ${spot ? 'bg-indigo-50 border-indigo-200 text-indigo-900 font-bold' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'}
-                                `}
-                            >
-                                <option value="" disabled>Select a specific meeting spot...</option>
-                                {spotsAvailable.map((s: string) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full pointer-events-none uppercase tracking-wide">
-                                Suggested
+                            <div className={`relative w-full rounded-xl border transition-all overflow-hidden flex items-center ${spot ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
+                                {/* Icon */}
+                                <div className="pl-4 text-slate-400">
+                                    <NavIcon size={16} className={spot ? "text-indigo-500" : ""}/>
+                                </div>
+
+                                {/* Select Input */}
+                                <select 
+                                    value={spot}
+                                    onChange={(e) => handleSpotSelect(e.target.value)}
+                                    className={`w-full h-[50px] pl-3 pr-12 bg-transparent appearance-none outline-none font-medium text-sm cursor-pointer ${spot ? 'text-indigo-900 font-bold' : 'text-slate-500'}`}
+                                >
+                                    <option value="" disabled>Select a specific meeting spot...</option>
+                                    {spotsAvailable.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                                </select>
+
+                                {/* Badge */}
+                                <div className="absolute right-3 pointer-events-none">
+                                    {spot ? (
+                                         <CheckCircle2 size={18} className="text-indigo-500"/>
+                                    ) : (
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100 px-2 py-1 rounded-md">Suggested</span>
+                                    )}
+                                </div>
                             </div>
                          </div>
                     )}
