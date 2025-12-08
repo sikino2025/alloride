@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Navigation } from './components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from './types';
 import { translations, Language } from './utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw } from 'lucide-react';
 import { LeaderboardChart } from './components/LeaderboardChart';
 import { getStaticMapUrl } from './services/geminiService';
 import { Logo } from './components/Logo';
@@ -413,7 +413,7 @@ const HomeView = ({ user, allRides, bookedRides, setDetailRide, setView, lang }:
     );
 };
 
-const PostRideView = ({ user, onPublish, setView, lang }: any) => {
+const PostRideView = ({ user, onPublish, setView, lang, refreshUser }: any) => {
     const t = translations[lang];
     const [form, setForm] = useState({ origin: 'Montreal, QC', destination: 'Quebec, QC', price: 45, seats: 3, date: toLocalISOString(new Date()), time: '09:00' });
 
@@ -426,7 +426,10 @@ const PostRideView = ({ user, onPublish, setView, lang }: any) => {
                 </div>
                 <h2 className="text-2xl font-bold text-slate-900 mb-2">{t.verificationRequired}</h2>
                 <p className="text-slate-500 mb-8">You must be approved by an administrator before posting trips.</p>
-                <Button onClick={() => setView('home')} variant="secondary">{t.backToHome}</Button>
+                <div className="space-y-3 w-full">
+                    <Button onClick={refreshUser} className="w-full flex items-center justify-center gap-2"><RefreshCw size={18}/> Check Approval Status</Button>
+                    <Button onClick={() => setView('home')} variant="secondary">{t.backToHome}</Button>
+                </div>
             </div>
         );
     }
@@ -637,6 +640,38 @@ export const App = () => {
         }
     }, []);
 
+    // Sync user data from storage to handle updates (like Admin approval) while logged in
+    useEffect(() => {
+        if (!user || user.id === 'admin') return;
+
+        const checkUserUpdate = () => {
+            const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+            const updatedUser = storedUsers.find((u: UserType) => u.id === user.id);
+            if (updatedUser) {
+                // If status changed, update state
+                if (JSON.stringify(updatedUser) !== JSON.stringify(user)) {
+                    setUser(updatedUser);
+                }
+            }
+        };
+
+        const interval = setInterval(checkUserUpdate, 1000);
+        return () => clearInterval(interval);
+    }, [user]);
+
+    // Manual refresh function to be passed down
+    const refreshUser = () => {
+        if (!user) return;
+        const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+        const updatedUser = storedUsers.find((u: UserType) => u.id === user.id);
+        if (updatedUser) {
+            setUser(updatedUser);
+            alert("Status refreshed: " + (updatedUser.driverStatus || 'unknown'));
+        } else {
+            alert("User record not found in storage.");
+        }
+    };
+
     const handleLogin = (u: UserType) => {
         setUser(u);
         setView(u.role === 'admin' ? 'admin' : 'home');
@@ -692,7 +727,7 @@ export const App = () => {
         <div className="h-full w-full">
             {view === 'home' && <HomeView user={user} allRides={allRides} bookedRides={bookedRides} setDetailRide={setDetailRide} setView={setView} lang={lang} />}
             {view === 'ride-detail' && detailRide && <RideDetailView ride={detailRide} user={user} onBack={() => setView('home')} onBook={handleBook} bookedRides={bookedRides} lang={lang} />}
-            {view === 'post' && <PostRideView user={user} onPublish={handlePublish} setView={setView} lang={lang} />}
+            {view === 'post' && <PostRideView user={user} onPublish={handlePublish} setView={setView} lang={lang} refreshUser={refreshUser} />}
             {view === 'admin' && <AdminView setView={setView} onVerify={handleAdminVerify} allRides={allRides} onDeleteRide={handleDeleteRide} />}
             {view === 'profile' && (
                 <div className="p-6 pt-12">
