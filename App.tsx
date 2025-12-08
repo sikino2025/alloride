@@ -504,9 +504,10 @@ const RideDetailView = ({ ride, user, onBack, onBook, bookedRides, lang }: any) 
     );
 };
 
-const AdminView = ({ setView, onVerify }: any) => {
+const AdminView = ({ setView, onVerify, allRides, onDeleteRide }: any) => {
+    const [tab, setTab] = useState('pending'); // 'pending' | 'rides'
     const [pending, setPending] = useState<any[]>([]);
-    
+
     useEffect(() => {
         const p = JSON.parse(localStorage.getItem(STORAGE_KEY_PENDING_DRIVERS) || '[]');
         setPending(p);
@@ -520,26 +521,59 @@ const AdminView = ({ setView, onVerify }: any) => {
     };
 
     return (
-        <div className="h-full bg-slate-50 p-6 pt-12">
-            <Header title="Admin Dashboard" subtitle="Approve Drivers" />
-            {pending.length === 0 ? <p className="text-slate-400 text-center mt-10">No pending approvals.</p> : (
+        <div className="h-full bg-slate-50 p-6 pt-12 pb-32 overflow-y-auto">
+            <Header title="Admin Dashboard" />
+            
+            <div className="flex bg-white p-1 rounded-xl mb-6 shadow-sm border border-slate-100">
+                <button onClick={() => setTab('pending')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'pending' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Approvals ({pending.length})</button>
+                <button onClick={() => setTab('rides')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'rides' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Live Traffic ({allRides.length})</button>
+            </div>
+
+            {tab === 'pending' && (
+                <>
+                {pending.length === 0 ? <p className="text-slate-400 text-center mt-10">No pending approvals.</p> : (
+                    <div className="space-y-4">
+                        {pending.map(d => (
+                            <div key={d.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <img src={d.avatar} className="w-12 h-12 rounded-full object-cover bg-slate-200"/>
+                                    <div className="font-bold">{d.firstName} {d.lastName}</div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 mb-4">
+                                    {['license', 'insurance', 'photo'].map(k => (
+                                        <div key={k} className="h-16 bg-slate-100 rounded-lg overflow-hidden border">
+                                            {d.documentsData[k] ? <img src={d.documentsData[k]} className="w-full h-full object-cover" /> : <div className="flex items-center justify-center h-full text-xs">No Doc</div>}
+                                        </div>
+                                    ))}
+                                </div>
+                                <Button onClick={() => handleApprove(d)} className="py-2 text-sm">Approve Driver</Button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                </>
+            )}
+
+            {tab === 'rides' && (
                 <div className="space-y-4">
-                    {pending.map(d => (
-                        <div key={d.id} className="bg-white p-4 rounded-2xl shadow-sm">
-                            <div className="flex items-center gap-3 mb-4">
-                                <img src={d.avatar} className="w-12 h-12 rounded-full object-cover bg-slate-200"/>
-                                <div className="font-bold">{d.firstName} {d.lastName}</div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2 mb-4">
-                                {['license', 'insurance', 'photo'].map(k => (
-                                    <div key={k} className="h-16 bg-slate-100 rounded-lg overflow-hidden border">
-                                        {d.documentsData[k] ? <img src={d.documentsData[k]} className="w-full h-full object-cover" /> : <div className="flex items-center justify-center h-full text-xs">No Doc</div>}
-                                    </div>
-                                ))}
-                            </div>
-                            <Button onClick={() => handleApprove(d)} className="py-2 text-sm">Approve Driver</Button>
-                        </div>
-                    ))}
+                     {allRides.length === 0 ? <p className="text-slate-400 text-center mt-10">No active trips.</p> : allRides.map((ride: Ride) => (
+                         <div key={ride.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                             <div className="flex justify-between items-center mb-3">
+                                 <div>
+                                     <div className="font-bold text-slate-900 text-sm">{ride.origin} → {ride.destination}</div>
+                                     <div className="text-xs text-slate-400 mt-1">{ride.departureTime.toLocaleDateString()}</div>
+                                 </div>
+                                 <span className="font-bold text-indigo-600">${ride.price}</span>
+                             </div>
+                             <div className="flex items-center justify-between">
+                                 <div className="flex items-center gap-2 text-xs text-slate-500">
+                                     <img src={ride.driver.avatar} className="w-6 h-6 rounded-full bg-slate-200"/>
+                                     <span>{ride.driver.firstName}</span>
+                                 </div>
+                                 <button className="text-red-500 text-xs font-bold px-3 py-1 bg-red-50 rounded-lg hover:bg-red-100" onClick={() => onDeleteRide(ride.id)}>Cancel Trip</button>
+                             </div>
+                         </div>
+                     ))}
                 </div>
             )}
         </div>
@@ -587,6 +621,12 @@ export const App = () => {
         alert("Booked!");
     };
 
+    const handleDeleteRide = (id: string) => {
+         const updated = allRides.filter(r => r.id !== id);
+         setAllRides(updated);
+         localStorage.setItem(STORAGE_KEY_RIDES, JSON.stringify(updated));
+    };
+
     const handleAdminVerify = (driverId: string) => {
         alert("Driver Verified! They can now post trips.");
         // In a real app, you would update the specific user record in a database
@@ -602,7 +642,7 @@ export const App = () => {
             {view === 'home' && <HomeView user={user} allRides={allRides} bookedRides={bookedRides} setDetailRide={setDetailRide} setView={setView} lang={lang} />}
             {view === 'ride-detail' && detailRide && <RideDetailView ride={detailRide} user={user} onBack={() => setView('home')} onBook={handleBook} bookedRides={bookedRides} lang={lang} />}
             {view === 'post' && <PostRideView user={user} onPublish={handlePublish} setView={setView} lang={lang} />}
-            {view === 'admin' && <AdminView setView={setView} onVerify={handleAdminVerify} />}
+            {view === 'admin' && <AdminView setView={setView} onVerify={handleAdminVerify} allRides={allRides} onDeleteRide={handleDeleteRide} />}
             
             {view !== 'ride-detail' && view !== 'auth' && (
                 <Navigation currentView={view} setView={setView} lang={lang} userRole={user.role} />
