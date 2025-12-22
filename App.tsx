@@ -971,9 +971,6 @@ export const App = () => {
     } else {
        setRides(generateMockRides());
     }
-    
-    // Check for existing user session
-    // const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
   }, []);
 
   const handleLogin = (u: UserType) => {
