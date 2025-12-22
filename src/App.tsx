@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Navigation } from '../components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from '../types';
 import { translations, Language } from '../utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase, TrendingUp, Check, X } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase, TrendingUp, Check, X, Bell, HelpCircle } from 'lucide-react';
 import { LeaderboardChart } from '../components/LeaderboardChart';
 import { getStaticMapUrl, generateRideSafetyBrief } from '../services/geminiService';
 import { Logo } from '../components/Logo';
@@ -950,8 +950,87 @@ const WalletView = ({lang}: any) => {
 
 const ProfileView = ({ user, onLogout, lang, setLang }: any) => {
     const t = translations[lang];
+    const [activeTab, setActiveTab] = useState<'menu' | 'edit' | 'notifications' | 'help'>('menu');
+
+    if (activeTab === 'edit') {
+        return (
+            <div className="p-6 pt-12 h-full bg-slate-50 overflow-y-auto">
+                <button onClick={() => setActiveTab('menu')} className="flex items-center gap-2 font-bold text-slate-500 mb-6 hover:text-indigo-600"><ChevronLeft size={20}/> Back</button>
+                <h1 className="text-2xl font-extrabold text-slate-900 mb-6">Edit Profile</h1>
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase">Avatar</label>
+                        <div className="flex items-center gap-4 mt-2">
+                             <img src={user.avatar} className="w-16 h-16 rounded-full border border-slate-200" />
+                             <button className="text-indigo-600 text-sm font-bold bg-indigo-50 px-4 py-2 rounded-xl">Change Photo</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase">Full Name</label>
+                        <input defaultValue={`${user.firstName} ${user.lastName}`} className="w-full mt-1 p-3 bg-slate-50 rounded-xl font-bold border-transparent border focus:bg-white focus:border-indigo-500 outline-none" />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase">Email</label>
+                        <input defaultValue={user.email} className="w-full mt-1 p-3 bg-slate-50 rounded-xl font-bold border-transparent border focus:bg-white focus:border-indigo-500 outline-none" />
+                    </div>
+                     <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase">Phone</label>
+                        <input defaultValue={user.phone} className="w-full mt-1 p-3 bg-slate-50 rounded-xl font-bold border-transparent border focus:bg-white focus:border-indigo-500 outline-none" />
+                    </div>
+                    <Button className="mt-4">Save Changes</Button>
+                </div>
+            </div>
+        );
+    }
+
+    if (activeTab === 'notifications') {
+        return (
+            <div className="p-6 pt-12 h-full bg-slate-50 overflow-y-auto">
+                <button onClick={() => setActiveTab('menu')} className="flex items-center gap-2 font-bold text-slate-500 mb-6 hover:text-indigo-600"><ChevronLeft size={20}/> Back</button>
+                <h1 className="text-2xl font-extrabold text-slate-900 mb-6">Notifications</h1>
+                <div className="space-y-3">
+                    {[1,2,3].map(i => (
+                        <div key={i} className="bg-white p-4 rounded-2xl border border-slate-100 flex gap-3 items-start">
+                            <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 mt-1">
+                                <Bell size={14} />
+                            </div>
+                            <div>
+                                <div className="font-bold text-sm text-slate-900">Ride Reminder</div>
+                                <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">Your ride to Montreal is coming up tomorrow at 9:00 AM. Don't be late!</div>
+                                <div className="text-[10px] font-bold text-slate-300 mt-2">2 hours ago</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    if (activeTab === 'help') {
+        return (
+             <div className="p-6 pt-12 h-full bg-slate-50 overflow-y-auto">
+                <button onClick={() => setActiveTab('menu')} className="flex items-center gap-2 font-bold text-slate-500 mb-6 hover:text-indigo-600"><ChevronLeft size={20}/> Back</button>
+                <h1 className="text-2xl font-extrabold text-slate-900 mb-6">Help & Support</h1>
+                <div className="space-y-3">
+                     <div className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center cursor-pointer hover:border-indigo-200">
+                         <span className="font-bold text-slate-700">FAQ</span>
+                         <ChevronLeft size={16} className="rotate-180 text-slate-300"/>
+                     </div>
+                     <div className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center cursor-pointer hover:border-indigo-200">
+                         <span className="font-bold text-slate-700">Contact Support</span>
+                         <ChevronLeft size={16} className="rotate-180 text-slate-300"/>
+                     </div>
+                     <div className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center cursor-pointer hover:border-indigo-200">
+                         <span className="font-bold text-slate-700">Safety Center</span>
+                         <ChevronLeft size={16} className="rotate-180 text-slate-300"/>
+                     </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="p-6 pt-12 pb-32 h-full bg-slate-50">
+        <div className="p-6 pt-12 pb-32 h-full bg-slate-50 overflow-y-auto no-scrollbar">
             <div className="flex flex-col items-center mb-10">
                 <div className="relative">
                     <img src={user.avatar} className="w-28 h-28 rounded-full border-4 border-white shadow-xl mb-4 object-cover" />
@@ -967,15 +1046,15 @@ const ProfileView = ({ user, onLogout, lang, setLang }: any) => {
             </div>
             
             <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden mb-6">
-                 <button className="w-full p-5 flex items-center justify-between border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                 <button onClick={() => setActiveTab('edit')} className="w-full p-5 flex items-center justify-between border-b border-slate-50 hover:bg-slate-50 transition-colors">
                      <span className="font-bold text-slate-700">Edit Profile</span>
                      <ChevronDown className="-rotate-90 text-slate-300" size={16}/>
                  </button>
-                 <button className="w-full p-5 flex items-center justify-between border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                 <button onClick={() => setActiveTab('notifications')} className="w-full p-5 flex items-center justify-between border-b border-slate-50 hover:bg-slate-50 transition-colors">
                      <span className="font-bold text-slate-700">Notifications</span>
                      <ChevronDown className="-rotate-90 text-slate-300" size={16}/>
                  </button>
-                 <button className="w-full p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                 <button onClick={() => setActiveTab('help')} className="w-full p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
                      <span className="font-bold text-slate-700">Help & Support</span>
                      <ChevronDown className="-rotate-90 text-slate-300" size={16}/>
                  </button>
@@ -1077,7 +1156,12 @@ const AdminView = ({ lang, allUsers, rides, onVerifyDriver }: any) => {
                                      <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                                          <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 text-[10px] font-bold uppercase text-slate-500 flex justify-between items-center">
                                              <span>Driver's License</span>
-                                             <CheckCircle2 size={12} className="text-green-500"/>
+                                             <div className="flex items-center gap-2">
+                                                 <a href={selectedDriver.documentsData.license} download={`license-${selectedDriver.id}.jpg`} className="text-indigo-600 bg-indigo-50 p-1.5 rounded-lg hover:bg-indigo-100 transition-colors" title="Download">
+                                                     <Download size={14}/>
+                                                 </a>
+                                                 <CheckCircle2 size={14} className="text-green-500"/>
+                                             </div>
                                          </div>
                                          <img src={selectedDriver.documentsData.license} className="w-full h-48 object-cover bg-slate-100" />
                                      </div>
@@ -1087,7 +1171,12 @@ const AdminView = ({ lang, allUsers, rides, onVerifyDriver }: any) => {
                                      <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                                          <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 text-[10px] font-bold uppercase text-slate-500 flex justify-between items-center">
                                              <span>Insurance Policy</span>
-                                             <CheckCircle2 size={12} className="text-green-500"/>
+                                             <div className="flex items-center gap-2">
+                                                 <a href={selectedDriver.documentsData.insurance} download={`insurance-${selectedDriver.id}.jpg`} className="text-indigo-600 bg-indigo-50 p-1.5 rounded-lg hover:bg-indigo-100 transition-colors" title="Download">
+                                                     <Download size={14}/>
+                                                 </a>
+                                                 <CheckCircle2 size={14} className="text-green-500"/>
+                                             </div>
                                          </div>
                                          <img src={selectedDriver.documentsData.insurance} className="w-full h-48 object-cover bg-slate-100" />
                                      </div>
@@ -1097,7 +1186,12 @@ const AdminView = ({ lang, allUsers, rides, onVerifyDriver }: any) => {
                                      <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                                          <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 text-[10px] font-bold uppercase text-slate-500 flex justify-between items-center">
                                              <span>Verification Selfie</span>
-                                             <CheckCircle2 size={12} className="text-green-500"/>
+                                              <div className="flex items-center gap-2">
+                                                 <a href={selectedDriver.documentsData.photo} download={`photo-${selectedDriver.id}.jpg`} className="text-indigo-600 bg-indigo-50 p-1.5 rounded-lg hover:bg-indigo-100 transition-colors" title="Download">
+                                                     <Download size={14}/>
+                                                 </a>
+                                                 <CheckCircle2 size={14} className="text-green-500"/>
+                                             </div>
                                          </div>
                                          <img src={selectedDriver.documentsData.photo} className="w-full h-48 object-cover bg-slate-100" />
                                      </div>
