@@ -179,6 +179,38 @@ const generateMockRides = (): Ride[] => {
     return rides.sort((a,b) => a.departureTime.getTime() - b.departureTime.getTime());
 };
 
+const generateMockPendingDriver = (): UserType => {
+    // A placeholder image for docs
+    const placeholderDoc = "https://placehold.co/600x400/e2e8f0/475569?text=Document+Preview";
+    
+    return {
+        id: 'mock-pending-driver-1',
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'john.doe@example.com',
+        phone: '514-555-0199',
+        role: 'driver',
+        driverStatus: 'pending',
+        isVerified: false,
+        avatar: 'https://i.pravatar.cc/150?u=john',
+        documentsUploaded: { license: true, insurance: true, photo: true },
+        documentsData: {
+            license: placeholderDoc,
+            insurance: placeholderDoc,
+            photo: 'https://i.pravatar.cc/150?u=john' // Selfie
+        },
+        rating: 0,
+        totalRides: 0,
+        vehicle: {
+            make: 'Honda',
+            model: 'Civic',
+            year: '2022',
+            color: 'Silver',
+            plate: 'H32 KP9'
+        }
+    };
+};
+
 // --- Shared Components ---
 
 const Button = ({ children, onClick, variant = 'primary', className = '', fullWidth = true, disabled = false }: any) => {
@@ -393,26 +425,38 @@ const AuthView = ({ onLogin, lang, setLang }: any) => {
           onLogin({ ...MOCK_USER_TEMPLATE, id: 'admin', role: 'admin', firstName: 'Admin', lastName: 'User' });
           return;
       }
-      const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
-      const existingUser = storedUsers.find((u: UserType) => u.email === email);
+      try {
+        const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+        const existingUser = storedUsers.find((u: UserType) => u.email === email);
 
-      if (isLogin) {
-          if (existingUser) { onLogin(existingUser); } 
-          else { alert("User not found. Please sign up first."); setIsLogin(false); }
-      } else {
-          if (existingUser) { alert("User already exists. Logging in."); onLogin(existingUser); return; }
-          const newUser: UserType = {
-              ...MOCK_USER_TEMPLATE, id: `u-${Date.now()}`, role, email, firstName, lastName, phone,
-              avatar: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random`,
-              driverStatus: role === 'driver' ? 'new' : undefined,
-              isVerified: role === 'passenger'
-          };
-          if (role === 'driver') {
-              newUser.isVerified = false;
-              newUser.documentsUploaded = { license: false, insurance: false, photo: false };
-          }
-          localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify([...storedUsers, newUser]));
-          onLogin(newUser);
+        if (isLogin) {
+            if (existingUser) { onLogin(existingUser); } 
+            else { alert("User not found. Please sign up first."); setIsLogin(false); }
+        } else {
+            if (existingUser) { alert("User already exists. Logging in."); onLogin(existingUser); return; }
+            const newUser: UserType = {
+                ...MOCK_USER_TEMPLATE, id: `u-${Date.now()}`, role, email, firstName, lastName, phone,
+                avatar: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random`,
+                driverStatus: role === 'driver' ? 'new' : undefined,
+                isVerified: role === 'passenger'
+            };
+            if (role === 'driver') {
+                newUser.isVerified = false;
+                newUser.documentsUploaded = { license: false, insurance: false, photo: false };
+            }
+            localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify([...storedUsers, newUser]));
+            onLogin(newUser);
+        }
+      } catch (err) {
+        // Fallback if storage fails
+        console.error("Auth storage error", err);
+        const newUser: UserType = {
+            ...MOCK_USER_TEMPLATE, id: `u-${Date.now()}`, role, email, firstName, lastName, phone,
+            avatar: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random`,
+            driverStatus: role === 'driver' ? 'new' : undefined,
+            isVerified: role === 'passenger'
+        };
+        onLogin(newUser);
       }
   };
 
@@ -946,7 +990,7 @@ const ProfileView = ({ user, onLogout, lang, setLang }: any) => {
 
 const AdminView = ({ lang, allUsers, rides, onVerifyDriver }: any) => {
     const t = translations[lang];
-    const [activeTab, setActiveTab] = useState<'overview' | 'drivers' | 'rides'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'drivers' | 'routes'>('overview');
     
     // Derived state
     const pendingDrivers = useMemo(() => allUsers.filter((u: UserType) => u.driverStatus === 'pending'), [allUsers]);
@@ -965,98 +1009,136 @@ const AdminView = ({ lang, allUsers, rides, onVerifyDriver }: any) => {
                 <button onClick={() => setActiveTab('drivers')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'drivers' ? 'bg-slate-900 text-white shadow' : 'text-slate-500'}`}>
                     Drivers {pendingDrivers.length > 0 && <span className="bg-red-500 text-white px-1.5 py-0.5 rounded-full text-[10px] ml-1">{pendingDrivers.length}</span>}
                 </button>
-                <button onClick={() => setActiveTab('rides')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'rides' ? 'bg-slate-900 text-white shadow' : 'text-slate-500'}`}>Trips</button>
+                <button onClick={() => setActiveTab('routes')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'routes' ? 'bg-slate-900 text-white shadow' : 'text-slate-500'}`}>Routes</button>
             </div>
 
             {activeTab === 'overview' && (
-                <div className="space-y-6">
+                <div className="space-y-6 animate-float-in">
+                    <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-xl shadow-slate-900/20 relative overflow-hidden">
+                        <div className="relative z-10">
+                            <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Total Earnings</h3>
+                            <div className="text-4xl font-extrabold">$12,450.00</div>
+                            <div className="flex items-center gap-2 mt-4 text-xs font-bold text-green-400 bg-green-400/10 w-fit px-2 py-1 rounded-lg">
+                                <TrendingUp size={14}/> +12% this week
+                            </div>
+                        </div>
+                        <div className="absolute -right-4 -bottom-8 w-32 h-32 bg-indigo-500 rounded-full blur-3xl opacity-30"></div>
+                    </div>
+
                     <LeaderboardChart />
+
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
                             <div className="text-slate-400 text-[10px] font-bold uppercase mb-1">Total Users</div>
                             <div className="text-2xl font-extrabold text-slate-900">{allUsers.length}</div>
                         </div>
                         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                            <div className="text-slate-400 text-[10px] font-bold uppercase mb-1">Total Rides</div>
+                            <div className="text-slate-400 text-[10px] font-bold uppercase mb-1">Total Routes</div>
                             <div className="text-2xl font-extrabold text-slate-900">{rides.length}</div>
                         </div>
                          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                            <div className="text-slate-400 text-[10px] font-bold uppercase mb-1">Pending</div>
+                            <div className="text-slate-400 text-[10px] font-bold uppercase mb-1">Pending Drivers</div>
                             <div className="text-2xl font-extrabold text-amber-500">{pendingDrivers.length}</div>
-                        </div>
-                         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                            <div className="text-slate-400 text-[10px] font-bold uppercase mb-1">Revenue</div>
-                            <div className="text-2xl font-extrabold text-green-600">$12,450</div>
                         </div>
                     </div>
                 </div>
             )}
 
             {activeTab === 'drivers' && (
-                <div className="space-y-4">
+                <div className="space-y-4 animate-float-in">
                      {selectedDriver ? (
-                         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-lg animate-float-in">
-                             <button onClick={() => setSelectedDriver(null)} className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-500"><ChevronLeft size={16}/> Back to list</button>
-                             <div className="flex items-center gap-4 mb-6">
-                                 <img src={selectedDriver.avatar} className="w-16 h-16 rounded-full border-2 border-slate-100"/>
+                         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-lg">
+                             <button onClick={() => setSelectedDriver(null)} className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors"><ChevronLeft size={16}/> Back to list</button>
+                             
+                             <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-50">
+                                 <img src={selectedDriver.avatar} className="w-16 h-16 rounded-full border-2 border-slate-100 object-cover"/>
                                  <div>
-                                     <div className="text-xl font-bold">{selectedDriver.firstName} {selectedDriver.lastName}</div>
+                                     <div className="text-xl font-extrabold text-slate-900">{selectedDriver.firstName} {selectedDriver.lastName}</div>
                                      <div className="text-xs font-bold text-slate-400">{selectedDriver.email}</div>
                                      <div className="text-xs font-bold text-slate-400">{selectedDriver.phone}</div>
                                  </div>
                              </div>
                              
-                             <h3 className="font-bold text-sm mb-3">Vehicle</h3>
-                             <div className="bg-slate-50 p-3 rounded-xl mb-6 text-sm text-slate-700">
-                                 <span className="font-bold">{selectedDriver.vehicle?.year} {selectedDriver.vehicle?.make} {selectedDriver.vehicle?.model}</span>
-                                 <div className="text-xs text-slate-500">Plate: {selectedDriver.vehicle?.plate}</div>
+                             <div className="grid grid-cols-2 gap-4 mb-6">
+                                <div className="bg-slate-50 p-4 rounded-2xl">
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Vehicle</div>
+                                    <div className="font-bold text-slate-800 text-sm">{selectedDriver.vehicle?.year} {selectedDriver.vehicle?.make}</div>
+                                    <div className="text-xs text-slate-500 font-medium">{selectedDriver.vehicle?.model} • {selectedDriver.vehicle?.plate}</div>
+                                </div>
+                                <div className="bg-slate-50 p-4 rounded-2xl">
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Status</div>
+                                    <div className="font-bold text-amber-600 text-sm uppercase flex items-center gap-1"><Clock size={14}/> Pending</div>
+                                </div>
                              </div>
 
-                             <h3 className="font-bold text-sm mb-3">Documents</h3>
-                             <div className="space-y-3 mb-6">
+                             <h3 className="font-bold text-sm mb-4 flex items-center gap-2"><FileText size={16} className="text-indigo-500"/> Submitted Documents</h3>
+                             <div className="space-y-4 mb-8">
                                  {selectedDriver.documentsData?.license ? (
-                                     <div className="border rounded-xl overflow-hidden">
-                                         <div className="bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase text-slate-500">License</div>
-                                         <img src={selectedDriver.documentsData.license} className="w-full object-cover max-h-40" />
+                                     <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                                         <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 text-[10px] font-bold uppercase text-slate-500 flex justify-between items-center">
+                                             <span>Driver's License</span>
+                                             <CheckCircle2 size={12} className="text-green-500"/>
+                                         </div>
+                                         <img src={selectedDriver.documentsData.license} className="w-full h-48 object-cover bg-slate-100" />
                                      </div>
-                                 ) : <div className="text-red-500 text-xs">Missing License</div>}
+                                 ) : <div className="p-4 bg-red-50 text-red-500 rounded-xl text-xs font-bold border border-red-100 flex items-center gap-2"><XCircle size={16}/> Missing License</div>}
                                  
                                   {selectedDriver.documentsData?.insurance ? (
-                                     <div className="border rounded-xl overflow-hidden">
-                                         <div className="bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase text-slate-500">Insurance</div>
-                                         <img src={selectedDriver.documentsData.insurance} className="w-full object-cover max-h-40" />
+                                     <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                                         <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 text-[10px] font-bold uppercase text-slate-500 flex justify-between items-center">
+                                             <span>Insurance Policy</span>
+                                             <CheckCircle2 size={12} className="text-green-500"/>
+                                         </div>
+                                         <img src={selectedDriver.documentsData.insurance} className="w-full h-48 object-cover bg-slate-100" />
                                      </div>
-                                 ) : <div className="text-red-500 text-xs">Missing Insurance</div>}
+                                 ) : <div className="p-4 bg-red-50 text-red-500 rounded-xl text-xs font-bold border border-red-100 flex items-center gap-2"><XCircle size={16}/> Missing Insurance</div>}
                                  
                                   {selectedDriver.documentsData?.photo ? (
-                                     <div className="border rounded-xl overflow-hidden">
-                                         <div className="bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase text-slate-500">Selfie</div>
-                                         <img src={selectedDriver.documentsData.photo} className="w-full object-cover max-h-40" />
+                                     <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                                         <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 text-[10px] font-bold uppercase text-slate-500 flex justify-between items-center">
+                                             <span>Verification Selfie</span>
+                                             <CheckCircle2 size={12} className="text-green-500"/>
+                                         </div>
+                                         <img src={selectedDriver.documentsData.photo} className="w-full h-48 object-cover bg-slate-100" />
                                      </div>
-                                 ) : <div className="text-red-500 text-xs">Missing Photo</div>}
+                                 ) : <div className="p-4 bg-red-50 text-red-500 rounded-xl text-xs font-bold border border-red-100 flex items-center gap-2"><XCircle size={16}/> Missing Photo</div>}
                              </div>
 
-                             <div className="flex gap-3">
-                                 <Button variant="danger" onClick={() => { onVerifyDriver(selectedDriver.id, false); setSelectedDriver(null); }}>Reject</Button>
-                                 <Button variant="success" onClick={() => { onVerifyDriver(selectedDriver.id, true); setSelectedDriver(null); }}>Approve Driver</Button>
+                             <div className="flex gap-3 pt-4 border-t border-slate-100">
+                                 <Button variant="danger" className="flex-1" onClick={() => { onVerifyDriver(selectedDriver.id, false); setSelectedDriver(null); }}>
+                                     <X size={18}/> Reject
+                                 </Button>
+                                 <Button variant="success" className="flex-1" onClick={() => { onVerifyDriver(selectedDriver.id, true); setSelectedDriver(null); }}>
+                                     <Check size={18}/> Approve
+                                 </Button>
                              </div>
                          </div>
                      ) : (
                         <>
-                             {pendingDrivers.length === 0 && <div className="text-center py-10 text-slate-400 font-bold text-sm">No pending approvals</div>}
+                             {pendingDrivers.length === 0 && (
+                                 <div className="text-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-200">
+                                     <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                                         <CheckCircle2 size={32}/>
+                                     </div>
+                                     <p className="font-bold text-slate-400">All caught up!</p>
+                                     <p className="text-xs text-slate-400 mt-1">No pending applications</p>
+                                 </div>
+                             )}
                              {pendingDrivers.map(driver => (
-                                 <div key={driver.id} onClick={() => setSelectedDriver(driver)} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between cursor-pointer hover:border-indigo-300 transition-colors">
-                                     <div className="flex items-center gap-3">
+                                 <div key={driver.id} onClick={() => setSelectedDriver(driver)} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between cursor-pointer hover:border-indigo-500 hover:ring-1 hover:ring-indigo-500/20 transition-all">
+                                     <div className="flex items-center gap-4">
                                          <div className="relative">
-                                             <img src={driver.avatar} className="w-12 h-12 rounded-full border border-slate-100"/>
-                                             <div className="absolute -bottom-1 -right-1 bg-amber-500 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-[8px] text-white font-bold">!</div>
+                                             <img src={driver.avatar} className="w-14 h-14 rounded-full border-2 border-white shadow-sm object-cover"/>
+                                             <div className="absolute -bottom-1 -right-1 bg-amber-500 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-[10px] text-white font-bold">1</div>
                                          </div>
                                          <div>
-                                             <div className="font-bold text-slate-900">{driver.firstName} {driver.lastName}</div>
-                                             <div className="text-xs text-slate-500">Applied to be driver</div>
+                                             <div className="font-bold text-slate-900 text-lg">{driver.firstName} {driver.lastName}</div>
+                                             <div className="text-xs text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-md w-fit mt-1">Review Needed</div>
                                          </div>
                                      </div>
-                                     <ChevronLeft className="rotate-180 text-slate-300" size={20}/>
+                                     <div className="bg-slate-50 p-2 rounded-full text-slate-400">
+                                        <ChevronLeft className="rotate-180" size={20}/>
+                                     </div>
                                  </div>
                              ))}
                         </>
@@ -1064,25 +1146,30 @@ const AdminView = ({ lang, allUsers, rides, onVerifyDriver }: any) => {
                 </div>
             )}
 
-            {activeTab === 'rides' && (
-                <div className="space-y-6">
+            {activeTab === 'routes' && (
+                <div className="space-y-6 animate-float-in">
                     <div>
-                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Upcoming ({upcomingRides.length})</h3>
-                        {upcomingRides.length === 0 ? <p className="text-sm text-slate-400 italic">No upcoming rides</p> : 
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Upcoming Routes ({upcomingRides.length})</h3>
+                        </div>
+                        {upcomingRides.length === 0 ? <p className="text-sm text-slate-400 italic pl-4">No upcoming rides scheduled.</p> : 
                             upcomingRides.map(ride => (
                                 <div key={ride.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm mb-3">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="text-xs font-bold text-slate-500">{new Date(ride.departureTime).toLocaleDateString()}</div>
-                                        <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">Scheduled</div>
+                                    <div className="flex justify-between items-center mb-3">
+                                        <span className="text-xs font-bold text-slate-500 flex items-center gap-1"><Calendar size={12}/> {new Date(ride.departureTime).toLocaleDateString()}</span>
+                                        <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">Scheduled</span>
                                     </div>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="font-bold text-slate-900">{ride.origin.split(',')[0]}</div>
-                                        <ArrowRight size={14} className="text-slate-300"/>
-                                        <div className="font-bold text-slate-900">{ride.destination.split(',')[0]}</div>
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="font-bold text-slate-900 text-sm">{ride.origin.split(',')[0]}</div>
+                                        <div className="h-px bg-slate-200 flex-1 relative">
+                                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-100 p-1 rounded-full"><ArrowRight size={10} className="text-slate-400"/></div>
+                                        </div>
+                                        <div className="font-bold text-slate-900 text-sm">{ride.destination.split(',')[0]}</div>
                                     </div>
                                     <div className="flex items-center justify-between border-t border-slate-50 pt-2">
                                          <div className="flex items-center gap-2">
-                                             <img src={ride.driver.avatar} className="w-5 h-5 rounded-full"/>
+                                             <img src={ride.driver.avatar} className="w-6 h-6 rounded-full border border-slate-100"/>
                                              <span className="text-xs font-bold text-slate-600">{ride.driver.firstName}</span>
                                          </div>
                                          <span className="text-indigo-600 font-extrabold text-sm">${ride.price}</span>
@@ -1092,18 +1179,21 @@ const AdminView = ({ lang, allUsers, rides, onVerifyDriver }: any) => {
                         }
                     </div>
 
-                    <div>
-                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Past ({pastRides.length})</h3>
+                    <div className="pt-4 border-t border-slate-100">
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-2 h-2 rounded-full bg-slate-300"></div>
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Past History ({pastRides.length})</h3>
+                        </div>
                         {pastRides.map(ride => (
-                             <div key={ride.id} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-3 opacity-75">
+                             <div key={ride.id} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-3 opacity-60 hover:opacity-100 transition-opacity">
                                  <div className="flex justify-between items-start mb-2">
                                      <div className="text-xs font-bold text-slate-500">{new Date(ride.departureTime).toLocaleDateString()}</div>
                                      <div className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase">Completed</div>
                                  </div>
                                  <div className="flex items-center gap-2">
-                                     <div className="font-bold text-slate-900">{ride.origin.split(',')[0]}</div>
-                                     <ArrowRight size={14} className="text-slate-300"/>
-                                     <div className="font-bold text-slate-900">{ride.destination.split(',')[0]}</div>
+                                     <div className="font-bold text-slate-700 text-sm">{ride.origin.split(',')[0]}</div>
+                                     <ArrowRight size={12} className="text-slate-300"/>
+                                     <div className="font-bold text-slate-700 text-sm">{ride.destination.split(',')[0]}</div>
                                  </div>
                              </div>
                         ))}
@@ -1139,7 +1229,19 @@ export const App = () => {
     
     // Load Users for Admin
     const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
-    setAllUsers(storedUsers);
+    
+    // MOCK INJECTION: Ensure there is at least one pending driver for demonstration if list is empty or doesn't have one.
+    const hasPending = storedUsers.some((u:UserType) => u.driverStatus === 'pending');
+    if (!hasPending) {
+        const mockPending = generateMockPendingDriver();
+        const updatedUsers = [...storedUsers, mockPending];
+        setAllUsers(updatedUsers);
+        // Do not overwrite local storage with mock data permanently if you don't want to, 
+        // but for a persistent demo experience, we can.
+        // localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
+    } else {
+        setAllUsers(storedUsers);
+    }
   }, []);
 
   const handleLogin = (u: UserType) => {
@@ -1147,7 +1249,14 @@ export const App = () => {
       setView('home');
       // Refresh user list in case a new user signed up
       const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
-      setAllUsers(storedUsers);
+      
+      // Ensure mock pending driver exists in memory for admin view even after login
+      const hasPending = storedUsers.some((u:UserType) => u.driverStatus === 'pending');
+      if (!hasPending) {
+          setAllUsers([...storedUsers, generateMockPendingDriver()]);
+      } else {
+          setAllUsers(storedUsers);
+      }
   };
 
   const handlePublish = (ride: Ride) => {
