@@ -3,78 +3,21 @@ import React, { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from './types';
 import { translations, Language } from './utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, Camera, MessageSquare, Plus, Trash2, AlertCircle, LogOut, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Car, Clock, Shield, ShieldAlert, Camera, Plus, LogOut, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, Briefcase, MessageSquare } from 'lucide-react';
 import { LeaderboardChart } from './components/LeaderboardChart';
 import { getStaticMapUrl, generateRideSafetyBrief } from './services/geminiService';
 import { Logo } from './components/Logo';
 
-// --- Utilities ---
+// --- Safe Data Loading ---
+// We use a new key to ensure we don't crash reading old incompatible localstorage data
+const STORAGE_KEY_RIDES = 'alloride_rides_v15_poparide_style'; 
+const STORAGE_KEY_USERS = 'alloride_users_v5';
+
 const toLocalISOString = (date: Date) => {
   const offset = date.getTimezoneOffset();
   const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
   return adjustedDate.toISOString().split('T')[0];
 };
-
-const compressImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            if (!event.target?.result) {
-                reject(new Error("File is empty"));
-                return;
-            }
-            img.src = event.target.result as string;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 800;
-                const MAX_HEIGHT = 800;
-                let width = img.width;
-                let height = img.height;
-                if (width > height) {
-                    if (width > MAX_WIDTH) {
-                        height *= MAX_WIDTH / width;
-                        width = MAX_WIDTH;
-                    }
-                } else {
-                    if (height > MAX_HEIGHT) {
-                        width *= MAX_HEIGHT / height;
-                        height = MAX_HEIGHT;
-                    }
-                }
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                    ctx.drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL('image/jpeg', 0.7));
-                } else {
-                    reject(new Error("Canvas failed"));
-                }
-            };
-        };
-        reader.onerror = () => reject(new Error("File read failed"));
-    });
-};
-
-const getDisplayDate = (dateStr: string, t: any, lang: string) => {
-  if (!dateStr) return t.today;
-  const today = toLocalISOString(new Date());
-  const tomorrowDate = new Date();
-  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-  const tomorrow = toLocalISOString(tomorrowDate);
-  if (dateStr === today) return t.today;
-  if (dateStr === tomorrow) return t.tomorrow;
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const dateObj = new Date(y, m - 1, d);
-  return dateObj.toLocaleDateString(lang === 'fr' ? 'fr-CA' : 'en-US', { month: 'short', day: 'numeric', weekday: 'short' });
-};
-
-// --- Data & Constants ---
-// UPDATED VERSIONS TO PREVENT CRASHES FROM STALE DATA
-const STORAGE_KEY_RIDES = 'alloride_rides_v12'; 
-const STORAGE_KEY_USERS = 'alloride_users_v4';
 
 const MOCK_USER_TEMPLATE: UserType = {
   id: 'u1', firstName: 'Alex', lastName: 'Rivera', email: 'alex@example.com', phone: '514-555-0199', role: 'passenger', avatar: 'https://i.pravatar.cc/150?u=alex', isVerified: true, driverStatus: 'approved', documentsUploaded: { license: true, insurance: true, photo: true }, rating: 4.9, totalRides: 142,
@@ -89,963 +32,292 @@ const PROVINCE_NAMES: Record<string, string> = {
 
 const CITIES_AND_SPOTS: Record<string, Record<string, string[]>> = {
   "QC": {
-    "Montreal": ["Berri-UQAM", "Radisson", "YUL Airport", "Côte-Vertu", "Namur", "McGill", "Concordia"],
-    "Quebec City": ["Gare du Palais", "Sainte-Foy", "Université Laval", "Old Quebec", "Galeries Capitale"],
-    "Sherbrooke": ["Université de Sherbrooke", "Carrefour de l'Estrie", "Terminus", "Bishop's"],
-    "Gatineau": ["Promenades", "Place du Portage", "Museum", "Cegep"],
-    "Trois-Rivieres": ["Gare d'autocars", "UQTR", "Centre Les Rivières"],
-    "Laval": ["Montmorency", "Carrefour Laval", "Centropolis"],
-    "Longueuil": ["Longueuil Metro", "Place Longueuil", "Cégep"]
+    "Montreal": ["Berri-UQAM", "Radisson", "YUL Airport", "Côte-Vertu"],
+    "Quebec City": ["Gare du Palais", "Sainte-Foy", "Université Laval"],
+    "Sherbrooke": ["Université de Sherbrooke", "Carrefour de l'Estrie"],
+    "Gatineau": ["Promenades", "Place du Portage"],
+    "Trois-Rivieres": ["Gare d'autocars", "UQTR"],
   },
   "ON": {
-    "Toronto": ["Union Station", "YYZ Airport", "Yorkdale", "Scarborough TC", "CN Tower", "Fairview", "Kipling"],
-    "Ottawa": ["Rideau Centre", "Train Station", "Bayshore", "Kanata", "Parliament", "UOttawa"],
-    "Kingston": ["Queens", "Bus Terminal", "Carpool Lot"],
-    "Mississauga": ["Square One", "Port Credit", "Heartland"],
-    "London": ["Western U", "Masonville", "White Oaks"],
-    "Hamilton": ["McMaster", "GO Centre", "Lime Ridge"],
-    "Windsor": ["UWindsor", "Devonshire"]
+    "Toronto": ["Union Station", "YYZ Airport", "Yorkdale"],
+    "Ottawa": ["Rideau Centre", "Train Station"],
+    "Kingston": ["Queens", "Bus Terminal"],
   },
-  "BC": {
-    "Vancouver": ["Pacific Central", "UBC", "Waterfront", "YVR Airport", "Commercial-Bwy"],
-    "Victoria": ["Mayfair", "UVic", "Swartz Bay"],
-    "Kelowna": ["UBCO", "Orchard Park"],
-    "Kamloops": ["TRU", "Aberdeen"],
-    "Whistler": ["Gateway", "Creekside"]
-  },
-  "AB": {
-    "Calgary": ["UCalgary", "Chinook", "Calgary Tower", "YYC Airport"],
-    "Edmonton": ["West Edm Mall", "UAlberta", "Southgate"],
-    "Banff": ["Train Station", "Transit Hub"],
-    "Red Deer": ["College", "Bower Place"]
-  }
+  "BC": { "Vancouver": ["Pacific Central"], "Victoria": ["Mayfair"] },
+  "AB": { "Calgary": ["UCalgary"], "Edmonton": ["West Edm Mall"] }
 };
 
 const generateMockRides = (): Ride[] => {
-    const rides: Ride[] = [];
-    const drivers = [
-        { id: 'd1', firstName: 'Jean', lastName: 'Tremblay', avatar: 'https://i.pravatar.cc/150?u=jean', rating: 4.8 },
-        { id: 'd2', firstName: 'Sarah', lastName: 'Connor', avatar: 'https://i.pravatar.cc/150?u=sarah', rating: 4.9 },
-        { id: 'd3', firstName: 'Mike', lastName: 'Ross', avatar: 'https://i.pravatar.cc/150?u=mike', rating: 4.7 },
-        { id: 'd4', firstName: 'Amelie', lastName: 'Poulain', avatar: 'https://i.pravatar.cc/150?u=amelie', rating: 5.0 },
-        { id: 'd5', firstName: 'David', lastName: 'Beck', avatar: 'https://i.pravatar.cc/150?u=david', rating: 4.6 }
-    ];
-
-    const provinceKeys = Object.keys(CITIES_AND_SPOTS);
-
-    for (let i = 0; i < 35; i++) { 
-        const originProv = provinceKeys[Math.floor(Math.random() * provinceKeys.length)];
-        const originCities = Object.keys(CITIES_AND_SPOTS[originProv]);
-        const originCity = originCities[Math.floor(Math.random() * originCities.length)];
-
-        let destProv = originProv;
-        if (Math.random() > 0.8) {
-             destProv = provinceKeys[Math.floor(Math.random() * provinceKeys.length)];
-        }
-        
-        const destCities = Object.keys(CITIES_AND_SPOTS[destProv]);
-        let destCity = destCities[Math.floor(Math.random() * destCities.length)];
-
-        let attempts = 0;
-        while ((originCity === destCity && originProv === destProv) && attempts < 10) {
-             destCity = destCities[Math.floor(Math.random() * destCities.length)];
-             attempts++;
-        }
-
-        const driver = drivers[Math.floor(Math.random() * drivers.length)];
-        
+    // Generate clean mock data
+    return Array.from({ length: 15 }).map((_, i) => {
         const date = new Date();
-        date.setDate(date.getDate() + Math.floor(Math.random() * 7));
-        date.setHours(7 + Math.floor(Math.random() * 14), [0, 15, 30, 45][Math.floor(Math.random() * 4)], 0, 0);
-        
-        const arrival = new Date(date.getTime() + (2 + Math.random() * 4) * 3600000);
-
-        rides.push({
-            id: `mock-${i}-${Date.now()}`,
-            driver: { ...MOCK_USER_TEMPLATE, ...driver, role: 'driver', id: driver.id } as UserType,
-            origin: `${originCity}, ${originProv}`,
-            destination: `${destCity}, ${destProv}`,
-            price: 25 + Math.floor(Math.random() * 60),
+        date.setDate(date.getDate() + Math.floor(Math.random() * 5));
+        date.setHours(8 + Math.floor(Math.random() * 12), 0, 0, 0);
+        return {
+            id: `mock-${i}`,
+            driver: { ...MOCK_USER_TEMPLATE, id: `d${i}`, firstName: ['Sarah', 'Mike', 'Jessica', 'David', 'Emma'][i%5], avatar: `https://i.pravatar.cc/150?u=${i}`, rating: 4.8 + (Math.random()*0.2) },
+            origin: "Montreal, QC",
+            destination: ["Quebec City, QC", "Ottawa, ON", "Toronto, ON", "Sherbrooke, QC"][i%4],
+            price: 25 + Math.floor(Math.random() * 40),
             seatsAvailable: 1 + Math.floor(Math.random() * 3),
             totalSeats: 4,
             departureTime: date,
-            arrivalTime: arrival,
-            stops: [],
-            currency: 'CAD',
-            luggage: { small: 1, medium: 1, large: 0 },
-            distanceKm: 250,
-            features: { instantBook: Math.random() > 0.3, music: true, pets: false, smoking: false, wifi: Math.random() > 0.5, winterTires: true }
-        });
-    }
-    return rides.sort((a,b) => a.departureTime.getTime() - b.departureTime.getTime());
+            arrivalTime: new Date(date.getTime() + 3 * 3600000),
+            stops: [], currency: 'CAD', luggage: {small:1, medium:1, large:0}, distanceKm: 250,
+            features: { instantBook: Math.random() > 0.5, music: true, pets: false, smoking: false, wifi: true, winterTires: true }
+        } as Ride;
+    }).sort((a,b) => a.departureTime.getTime() - b.departureTime.getTime());
 };
 
-// --- Shared Components ---
+// --- Components ---
 
 const Button = ({ children, onClick, variant = 'primary', className = '', fullWidth = true, disabled = false }: any) => {
-  const baseStyle = "py-4 px-6 rounded-2xl font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:pointer-events-none shadow-md";
   const variants: any = {
-    primary: "bg-slate-900 text-white hover:bg-slate-800",
-    secondary: "bg-white text-slate-800 border border-slate-200 hover:bg-slate-50",
+    primary: "bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200 shadow-lg",
+    secondary: "bg-white text-slate-900 border border-slate-200 hover:bg-slate-50",
     danger: "bg-red-50 text-red-600 hover:bg-red-100",
-    outline: "border-2 border-slate-200 text-slate-600 hover:bg-slate-50"
   };
   return (
-    <button onClick={onClick} disabled={disabled} className={`${baseStyle} ${variants[variant]} ${fullWidth ? 'w-full' : ''} ${className}`}>
+    <button onClick={onClick} disabled={disabled} className={`py-3.5 px-6 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:pointer-events-none ${variants[variant]} ${fullWidth ? 'w-full' : ''} ${className}`}>
       {children}
     </button>
   );
 };
 
-const Header = ({ title, subtitle, rightAction }: any) => (
-  <div className="flex justify-between items-center mb-6 text-slate-900 px-1">
-    <div>
-      <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{title}</h1>
-      {subtitle && <p className="text-sm font-medium text-slate-500 mt-1">{subtitle}</p>}
-    </div>
-    {rightAction}
+const Input = ({ label, ...props }: any) => (
+  <div className="mb-4">
+    {label && <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">{label}</label>}
+    <input {...props} className="w-full bg-slate-50 border border-transparent focus:bg-white focus:border-indigo-500 rounded-xl px-4 py-3.5 outline-none font-semibold text-slate-900 transition-all placeholder:text-slate-400" />
   </div>
 );
 
-const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvince, type = 'origin' }: any) => {
-    const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
-    const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+const RideCard = ({ ride, onClick }: any) => {
+    const time = ride.departureTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const date = ride.departureTime.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
     
-    const spotsAvailable = province && city && CITIES_AND_SPOTS[province]?.[city];
-
-    const handleCityChange = (val: string) => {
-        setCity(val);
-        setSpot('');
-        if (province && CITIES_AND_SPOTS[province]) {
-            const cities = Object.keys(CITIES_AND_SPOTS[province]);
-            const filtered = cities.filter(c => c.toLowerCase().includes(val.toLowerCase()));
-            setCitySuggestions(filtered);
-            setShowCitySuggestions(true);
-        }
-    };
-
-    const handleCitySelect = (val: string) => {
-        setCity(val);
-        setShowCitySuggestions(false);
-    };
-
-    const handleSpotSelect = (val: string) => {
-        setSpot(val);
-    };
-
     return (
-        <div className="flex gap-4">
-             {/* Timeline Visual */}
-             <div className="flex flex-col items-center pt-2">
-                 <div className={`w-3 h-3 rounded-full ${type === 'origin' ? 'bg-indigo-600 ring-4 ring-indigo-50' : 'bg-pink-600 ring-4 ring-pink-50'}`} />
-                 {type === 'origin' && <div className="w-0.5 flex-1 bg-slate-200 min-h-[50px] my-1 rounded-full"></div>}
-             </div>
-
-             <div className="flex-1 pb-4">
-                 <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">{label}</label>
-                 
-                 <div className="bg-slate-50 rounded-2xl border border-transparent hover:border-slate-200 hover:bg-white focus-within:bg-white focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all">
-                    <div className="flex items-center">
-                        <div className="relative w-[30%] min-w-[90px] border-r border-slate-200">
-                             <select
-                                value={province}
-                                onChange={(e) => { setProvince(e.target.value); setCity(''); setSpot(''); }}
-                                className="w-full h-14 bg-transparent appearance-none outline-none font-bold text-slate-600 text-xs px-4 cursor-pointer"
-                             >
-                                {Object.keys(CITIES_AND_SPOTS).map(p => (
-                                    <option key={p} value={p}>{PROVINCE_NAMES[p]}</option>
-                                ))}
-                             </select>
-                             <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
+        <div onClick={onClick} className="bg-white p-5 rounded-2xl mb-4 border border-slate-100 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.08)] active:scale-[0.98] transition-all cursor-pointer">
+            <div className="flex justify-between items-start mb-4">
+                <div className="flex gap-4 items-center">
+                    <div className="flex flex-col items-center">
+                        <span className="text-lg font-extrabold text-slate-900">{time}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">{date}</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-slate-300"></div>
+                            <span className="font-bold text-slate-700 text-sm">{ride.origin.split(',')[0]}</span>
                         </div>
-
-                        <div className="relative flex-1">
-                            <input
-                                value={city}
-                                onChange={(e) => handleCityChange(e.target.value)}
-                                placeholder={type === 'origin' ? "Departure City" : "Arrival City"}
-                                className="w-full h-14 bg-transparent outline-none font-bold text-slate-900 text-sm px-4 placeholder:text-slate-300"
-                                onFocus={() => { if(province) handleCityChange(city); }}
-                            />
-                             {showCitySuggestions && citySuggestions.length > 0 && (
-                                <div className="absolute top-full left-0 w-full bg-white shadow-xl rounded-xl mt-2 z-50 max-h-60 overflow-y-auto border border-slate-100 p-2">
-                                    {citySuggestions.map(s => (
-                                        <button key={s} onClick={() => handleCitySelect(s)} className="w-full text-left p-3 hover:bg-slate-50 rounded-lg text-sm font-bold text-slate-700 flex items-center gap-3 transition-colors">
-                                            <MapPin size={14} className="text-slate-300"/>
-                                            {s}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                            <span className="font-bold text-slate-900 text-sm">{ride.destination.split(',')[0]}</span>
                         </div>
                     </div>
-                 </div>
-
-                 {city && spotsAvailable && spotsAvailable.length > 0 && (
-                    <div className="mt-2 animate-float-in">
-                        <div className="relative flex items-center">
-                            <div className="absolute left-3 text-slate-400"><NavIcon size={14} /></div>
-                            <select
-                                value={spot}
-                                onChange={(e) => handleSpotSelect(e.target.value)}
-                                className="w-full h-10 pl-9 pr-4 bg-white border border-slate-200 rounded-xl appearance-none outline-none font-medium text-slate-600 text-xs cursor-pointer hover:border-indigo-300 transition-colors"
-                            >
-                                <option value="" disabled>Specific meeting spot...</option>
-                                {spotsAvailable.map((s: string) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                            <ChevronDown size={12} className="absolute right-3 text-slate-400 pointer-events-none" />
-                        </div>
+                </div>
+                <div className="text-xl font-extrabold text-indigo-600">${ride.price}</div>
+            </div>
+            
+            <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                <div className="flex items-center gap-2">
+                    <img src={ride.driver.avatar} className="w-6 h-6 rounded-full border border-slate-100" />
+                    <span className="text-xs font-bold text-slate-600">{ride.driver.firstName}</span>
+                    <div className="flex items-center text-[10px] font-bold text-slate-400 gap-0.5 bg-slate-50 px-1.5 py-0.5 rounded">
+                        <Star size={8} className="fill-yellow-400 text-yellow-400"/> {ride.driver.rating.toFixed(1)}
                     </div>
-                 )}
-             </div>
+                </div>
+                {ride.features.instantBook && <Zap size={14} className="text-green-500 fill-green-500" />}
+            </div>
         </div>
     );
 };
 
-const RideCard = ({ ride, onClick, t, lang, isPast = false }: any) => {
-  const startTime = ride.departureTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const endTime = ride.arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  // const duration = Math.round((ride.arrivalTime.getTime() - ride.departureTime.getTime()) / 3600000 * 10) / 10;
-  const rideDate = ride.departureTime.toLocaleDateString(lang === 'fr' ? 'fr-CA' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  const isBooked = ride.bookedSeats && ride.bookedSeats > 0;
-
-  return (
-    <div onClick={onClick} className={`bg-white rounded-2xl p-0 shadow-sm hover:shadow-md mb-4 active:scale-[0.99] transition-all cursor-pointer border border-slate-100 overflow-hidden ${isPast ? 'opacity-75 grayscale-[0.3]' : ''}`}>
-      {/* Top Banner for Date/Status */}
-      <div className="bg-slate-50 px-5 py-3 border-b border-slate-100 flex justify-between items-center">
-         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{rideDate}</span>
-         {isBooked && !isPast && <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Booked</span>}
-         {isPast && <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Completed</span>}
-      </div>
-
-      <div className="p-5 flex items-stretch">
-          {/* Times and Line */}
-          <div className="flex flex-col justify-between items-center mr-4 py-1">
-              <div className="text-sm font-bold text-slate-900">{startTime}</div>
-              <div className="w-0.5 flex-1 bg-slate-100 my-1 relative">
-                 {/* Decor dots */}
-                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-              </div>
-              <div className="text-sm font-bold text-slate-400">{endTime}</div>
-          </div>
-
-          {/* Locations */}
-          <div className="flex-1 flex flex-col justify-between py-1 space-y-4">
-              <div className="text-base font-bold text-slate-800 leading-tight">{ride.origin}</div>
-              <div className="text-base font-bold text-slate-800 leading-tight">{ride.destination}</div>
-          </div>
-
-          {/* Price */}
-          <div className="flex flex-col justify-between items-end pl-4 border-l border-slate-50">
-              <div className="text-xl font-extrabold text-indigo-600">${ride.price}</div>
-              <div className="flex flex-col items-end">
-                   <div className="w-8 h-8 rounded-full bg-slate-100 mb-1 overflow-hidden">
-                       <img src={ride.driver.avatar || 'https://i.pravatar.cc/150'} className="w-full h-full object-cover" />
-                   </div>
-                   <div className="flex items-center text-[10px] font-bold text-slate-400 gap-0.5">
-                       {ride.driver.rating} <Star size={8} className="fill-yellow-400 text-yellow-400"/>
-                   </div>
-              </div>
-          </div>
-      </div>
-      
-      {/* Footer Info */}
-      <div className="px-5 py-3 border-t border-slate-50 flex items-center justify-between bg-white">
-          <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
-             <span className="flex items-center gap-1"><Users size={12}/> {ride.seatsAvailable} seats left</span>
-             {ride.features.instantBook && <span className="flex items-center gap-1 text-green-600"><Zap size={12}/> Instant</span>}
-          </div>
-          <div className="text-xs font-bold text-slate-900 flex items-center gap-1">
-              {ride.driver.firstName}
-              {ride.driver.isVerified && <CheckCircle2 size={12} className="text-blue-500" />}
-          </div>
-      </div>
-    </div>
-  );
-};
-
-const LuggageCounter = ({ label, value, onChange }: { label: string, value: number, onChange: (v: number) => void }) => (
-    <div className="flex items-center justify-between p-3">
-        <span className="text-sm font-bold text-slate-700">{label}</span>
-        <div className="flex items-center gap-3">
-            <button onClick={() => onChange(Math.max(0, value - 1))} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center font-bold text-slate-500 hover:bg-slate-50">-</button>
-            <span className="font-bold text-sm min-w-[12px] text-center">{value}</span>
-            <button onClick={() => onChange(value + 1)} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center font-bold text-slate-500 hover:bg-slate-50">+</button>
+const SearchBar = ({ onClick }: any) => (
+    <div onClick={onClick} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 cursor-pointer mb-6 group hover:border-indigo-300 transition-colors">
+        <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
+            <Search size={20} strokeWidth={3} />
+        </div>
+        <div>
+            <div className="text-slate-900 font-extrabold text-lg">Find a ride</div>
+            <div className="text-slate-400 text-xs font-medium">Where do you want to go?</div>
         </div>
     </div>
 );
 
-// --- Auth & Onboarding Views ---
+// --- Views ---
 
-const AuthView = ({ onLogin, lang, setLang }: any) => {
-  const t = translations[lang];
-  const [isLogin, setIsLogin] = useState(true);
-  const [role, setRole] = useState<UserRole>('passenger');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
+const HomeView = ({ user, rides, setDetailRide, setView }: any) => (
+    <div className="p-6 pb-32">
+        <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-extrabold text-slate-900">Good morning, <br/><span className="text-indigo-600">{user.firstName}</span></h1>
+            <div onClick={() => setView('profile')} className="w-12 h-12 rounded-full border-2 border-white shadow-md overflow-hidden cursor-pointer">
+                <img src={user.avatar} className="w-full h-full object-cover" />
+            </div>
+        </div>
 
-  const handleAuth = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (email === 'admin@alloride.com' && password === 'admin') {
-          onLogin({ ...MOCK_USER_TEMPLATE, id: 'admin', role: 'admin', firstName: 'Admin', lastName: 'User' });
-          return;
-      }
-      try {
-        const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
-        const existingUser = storedUsers.find((u: UserType) => u.email === email);
+        {user.role === 'passenger' && <SearchBar onClick={() => setView('search')} />}
 
-        if (isLogin) {
-            if (existingUser) { onLogin(existingUser); } 
-            else { alert("User not found. Please sign up first."); setIsLogin(false); }
-        } else {
-            if (existingUser) { alert("User already exists. Logging in."); onLogin(existingUser); return; }
-            const newUser: UserType = {
-                ...MOCK_USER_TEMPLATE, id: `u-${Date.now()}`, role, email, firstName, lastName, phone,
-                avatar: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random`,
-                driverStatus: role === 'driver' ? 'new' : undefined,
-                isVerified: role === 'passenger'
-            };
-            if (role === 'driver') {
-                newUser.isVerified = false;
-                newUser.documentsUploaded = { license: false, insurance: false, photo: false };
-            }
-            localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify([...storedUsers, newUser]));
-            onLogin(newUser);
-        }
-      } catch (err) {
-        // Fallback if storage fails
-        console.error("Auth storage error", err);
-        const newUser: UserType = {
-            ...MOCK_USER_TEMPLATE, id: `u-${Date.now()}`, role, email, firstName, lastName, phone,
-            avatar: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random`,
-            driverStatus: role === 'driver' ? 'new' : undefined,
-            isVerified: role === 'passenger'
-        };
-        onLogin(newUser);
-      }
-  };
+        <div className="flex justify-between items-end mb-4">
+            <h2 className="text-lg font-bold text-slate-900">Available Trips</h2>
+            <button className="text-xs font-bold text-indigo-600">Filter</button>
+        </div>
 
-  return (
-    <div className="min-h-full bg-slate-900 flex flex-col items-center justify-center p-6 relative">
-       <div className="absolute top-6 right-6 z-50 flex gap-2">
-           <button onClick={() => setLang('en')} className="text-white text-xs font-bold opacity-80 hover:opacity-100">EN</button>
-           <button onClick={() => setLang('fr')} className="text-white text-xs font-bold opacity-80 hover:opacity-100">FR</button>
-       </div>
-       <div className="w-full max-w-md">
-          <div className="flex justify-center mb-8"><Logo size={120} /></div>
-          <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-[2.5rem]">
-             <div className="flex bg-black/30 p-1 rounded-xl mb-6">
-                <button onClick={() => setIsLogin(true)} className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${isLogin ? 'bg-white text-slate-900 shadow-lg' : 'text-white/60 hover:text-white'}`}>{t.logIn}</button>
-                <button onClick={() => setIsLogin(false)} className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${!isLogin ? 'bg-white text-slate-900 shadow-lg' : 'text-white/60 hover:text-white'}`}>{t.signUp}</button>
-             </div>
-             
-             <form onSubmit={handleAuth} className="space-y-4">
-                {!isLogin && (
-                   <>
-                       <div className="grid grid-cols-2 gap-3 mb-2">
-                          <button type="button" onClick={() => setRole('passenger')} className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${role === 'passenger' ? 'border-indigo-500 bg-indigo-500/20 text-white' : 'border-white/10 text-white/40 hover:bg-white/5'}`}>
-                             <User size={20} /><span className="text-xs font-bold">{t.passenger}</span>
-                          </button>
-                          <button type="button" onClick={() => setRole('driver')} className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${role === 'driver' ? 'border-indigo-500 bg-indigo-500/20 text-white' : 'border-white/10 text-white/40 hover:bg-white/5'}`}>
-                             <Car size={20} /><span className="text-xs font-bold">{t.driver}</span>
-                          </button>
-                       </div>
-                       <div className="grid grid-cols-2 gap-3">
-                           <input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder={t.firstName} className="bg-black/20 border border-white/10 text-white p-3 rounded-xl w-full focus:border-indigo-500 outline-none transition-colors placeholder:text-white/30" required />
-                           <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder={t.lastName} className="bg-black/20 border border-white/10 text-white p-3 rounded-xl w-full focus:border-indigo-500 outline-none transition-colors placeholder:text-white/30" required />
-                       </div>
-                       <input value={phone} onChange={e => setPhone(e.target.value)} placeholder={t.phone} className="bg-black/20 border border-white/10 text-white p-3 rounded-xl w-full focus:border-indigo-500 outline-none transition-colors placeholder:text-white/30" required />
-                   </>
-                )}
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t.email} className="bg-black/20 border border-white/10 text-white p-4 rounded-xl w-full focus:border-indigo-500 outline-none transition-colors placeholder:text-white/30" required />
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t.password} className="bg-black/20 border border-white/10 text-white p-4 rounded-xl w-full focus:border-indigo-500 outline-none transition-colors placeholder:text-white/30" required />
-                <Button type="submit" className="w-full mt-4 !bg-indigo-600 hover:!bg-indigo-500 !border-none !text-white !py-4 !shadow-indigo-500/20">{isLogin ? t.logIn : t.createAccount}</Button>
-             </form>
-          </div>
-       </div>
+        <div className="space-y-1">
+            {rides.map((r: Ride) => (
+                <RideCard key={r.id} ride={r} onClick={() => { setDetailRide(r); setView('ride-detail'); }} />
+            ))}
+        </div>
     </div>
-  );
-};
+);
 
-const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
-    const t = translations[lang];
-    const [step, setStep] = useState(1);
-    const [docs, setDocs] = useState<any>({ license: null, insurance: null, photo: null });
-    const [vehicle, setVehicle] = useState({ make: '', model: '', year: '', plate: '' });
-
-    const handleFile = async (e: any, key: string) => {
-        if (e.target.files?.[0]) {
-            try {
-                const b64 = await compressImage(e.target.files[0]);
-                setDocs({ ...docs, [key]: b64 });
-            } catch (err) { alert("Image error"); }
-        }
-    };
-
-    const finish = () => {
-        const updated = {
-            ...user,
-            vehicle,
-            avatar: docs.photo || user.avatar,
-            driverStatus: 'pending',
-            documentsData: docs
-        };
-        updateUser(updated);
-        
-        // Update user in storage
-        const users = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
-        const updatedUsers = users.map((u: UserType) => u.id === user.id ? updated : u);
-        localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
-        
-        onComplete();
-    };
-
-    return (
-        <div className="p-6 pt-12 bg-slate-50 h-full overflow-y-auto pb-32">
-            <Header title={t.driverSetup} subtitle={`Step ${step}/2`} />
-            {step === 1 ? (
-                <div className="space-y-4">
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                        <h3 className="font-bold mb-4 flex items-center gap-2"><Car size={20} className="text-indigo-600"/> Vehicle Info</h3>
-                        <div className="space-y-3">
-                            <input placeholder="Make (e.g. Toyota)" value={vehicle.make} onChange={e => setVehicle({...vehicle, make: e.target.value})} className="w-full p-4 bg-slate-50 border border-transparent focus:bg-white focus:border-indigo-500 rounded-xl outline-none transition-all font-bold" />
-                            <input placeholder="Model (e.g. Camry)" value={vehicle.model} onChange={e => setVehicle({...vehicle, model: e.target.value})} className="w-full p-4 bg-slate-50 border border-transparent focus:bg-white focus:border-indigo-500 rounded-xl outline-none transition-all font-bold" />
-                            <div className="flex gap-4">
-                                <input placeholder="Year" value={vehicle.year} onChange={e => setVehicle({...vehicle, year: e.target.value})} className="w-full p-4 bg-slate-50 border border-transparent focus:bg-white focus:border-indigo-500 rounded-xl outline-none transition-all font-bold" />
-                                <input placeholder="Plate Number" value={vehicle.plate} onChange={e => setVehicle({...vehicle, plate: e.target.value})} className="w-full p-4 bg-slate-50 border border-transparent focus:bg-white focus:border-indigo-500 rounded-xl outline-none transition-all font-bold" />
-                            </div>
-                        </div>
-                    </div>
-                    <Button onClick={() => setStep(2)} disabled={!vehicle.make || !vehicle.model} className="mt-4">Next Step <ArrowRight size={18}/></Button>
-                </div>
-            ) : (
-                <div className="space-y-6">
-                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                        <h3 className="font-bold mb-4 flex items-center gap-2"><FileText size={20} className="text-indigo-600"/> Required Documents</h3>
-                        <div className="space-y-3">
-                            {['license', 'insurance', 'photo'].map(key => (
-                                <div key={key} className={`p-4 rounded-xl border-2 border-dashed flex justify-between items-center relative transition-all ${docs[key] ? 'border-green-500 bg-green-50' : 'border-slate-200 hover:border-indigo-300'}`}>
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${docs[key] ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
-                                            {docs[key] ? <CheckCircle2 size={20}/> : <Camera size={20}/>}
-                                        </div>
-                                        <span className="capitalize font-bold text-slate-700">{key === 'photo' ? 'Profile Selfie' : key}</span>
-                                    </div>
-                                    <input type="file" onChange={e => handleFile(e, key)} className="absolute inset-0 opacity-0 cursor-pointer" />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <Button onClick={finish} disabled={!docs.license || !docs.insurance || !docs.photo} className="mt-4">{t.submit}</Button>
-                </div>
-            )}
-        </div>
-    );
-};
-
-// --- Main Views ---
-
-const HomeView = ({ user, allRides, bookedRides, setDetailRide, setView, lang }: any) => {
-    const t = translations[lang];
-    const now = new Date().getTime();
+const SearchAndFilterView = ({ rides, setDetailRide, setView }: any) => {
+    const [q, setQ] = useState('');
+    const filtered = rides.filter((r: Ride) => r.destination.toLowerCase().includes(q.toLowerCase()) || r.origin.toLowerCase().includes(q.toLowerCase()));
     
-    // Filter out past rides for Search
-    const upcomingRides = allRides.filter((r: Ride) => r.departureTime.getTime() > now && r.seatsAvailable > 0);
-    const myHistory = user.role === 'driver' ? allRides.filter((r: Ride) => r.driver.id === user.id) : [];
-
     return (
-        <div className="h-full pb-32 overflow-y-auto bg-slate-50">
-             <div className="bg-white p-6 pb-4 sticky top-0 z-10 border-b border-slate-100/50 backdrop-blur-md bg-white/90">
-                 <div className="flex justify-between items-center mb-4">
-                     <div>
-                         <h1 className="text-2xl font-extrabold text-slate-900">{t.goodMorning},</h1>
-                         <p className="text-slate-500 font-medium">{user.firstName}</p>
-                     </div>
-                     <img onClick={() => setView('profile')} src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}`} className="w-10 h-10 rounded-full border-2 border-white shadow-sm cursor-pointer hover:opacity-80 transition-opacity" />
-                 </div>
-                 
-                 {user.role === 'passenger' && (
-                     <div className="relative group" onClick={() => setView('search')}>
-                         <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                             <Search className="text-indigo-500" size={20}/>
-                         </div>
-                         <div className="w-full bg-slate-100 text-slate-500 font-bold py-4 pl-12 rounded-2xl cursor-pointer group-hover:bg-slate-200 transition-colors shadow-inner">
-                             {t.whereTo}
-                         </div>
-                     </div>
-                 )}
-
-                 {user.role === 'driver' && (
-                     <div className="flex gap-3">
-                         <div className="flex-1 bg-slate-900 text-white p-4 rounded-2xl shadow-lg shadow-slate-900/20">
-                             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Earnings</div>
-                             <div className="text-2xl font-extrabold">${myHistory.reduce((acc:number, r:Ride) => acc + (r.price * (r.totalSeats - r.seatsAvailable)), 0)}</div>
-                         </div>
-                          <div className={`flex-1 p-4 rounded-2xl border-2 flex flex-col justify-center items-center font-bold text-xs gap-1 ${user.driverStatus === 'pending' ? 'border-yellow-100 bg-yellow-50 text-yellow-700' : 'border-green-100 bg-green-50 text-green-700'}`}>
-                             {user.driverStatus === 'pending' ? <Clock size={20}/> : <CheckCircle2 size={20}/>}
-                             {user.driverStatus === 'pending' ? 'Pending' : 'Active'}
-                         </div>
-                     </div>
-                 )}
-             </div>
-
-             <div className="px-4 py-6">
-                 {user.role === 'passenger' && bookedRides.length > 0 && (
-                     <div className="mb-8">
-                         <div className="flex items-center justify-between mb-4 px-1">
-                            <h2 className="font-extrabold text-lg text-slate-900">{t.yourTickets}</h2>
-                         </div>
-                         {bookedRides.map((r: Ride) => (
-                             <RideCard key={r.id} ride={r} t={t} lang={lang} onClick={() => { setDetailRide(r); setView('ride-detail'); }} />
-                         ))}
-                     </div>
-                 )}
-
-                 <div className="flex items-center justify-between mb-4 px-1">
-                    <h2 className="font-extrabold text-lg text-slate-900">{user.role === 'driver' ? t.activeTrips : t.featuredRides}</h2>
-                 </div>
-                 
-                 {user.role === 'driver' ? (
-                     myHistory.length > 0 ? myHistory.map((r: Ride) => <RideCard key={r.id} ride={r} t={t} lang={lang} onClick={() => { setDetailRide(r); setView('ride-detail'); }} />) : (
-                         <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200">
-                             <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-300"><Car size={24}/></div>
-                             <p className="text-slate-400 font-bold text-sm">No trips posted yet.</p>
-                             <button onClick={() => setView('post')} className="mt-4 text-indigo-600 font-bold text-sm hover:underline">Post your first trip</button>
-                         </div>
-                     )
-                 ) : (
-                     <div className="space-y-4">
-                        {upcomingRides.map((r: Ride) => <RideCard key={r.id} ride={r} t={t} lang={lang} onClick={() => { setDetailRide(r); setView('ride-detail'); }} />)}
-                     </div>
-                 )}
-             </div>
-        </div>
-    );
-};
-
-const PostRideView = ({ user, onPublish, setView, lang, refreshUser }: any) => {
-    const t = translations[lang];
-    const [form, setForm] = useState({ price: 45, seats: 3, date: toLocalISOString(new Date()), time: '09:00', luggage: { small: 1, medium: 1, large: 0 } });
-    
-    const [originProv, setOriginProv] = useState('QC');
-    const [originCity, setOriginCity] = useState('');
-    const [originSpot, setOriginSpot] = useState('');
-
-    const [destProv, setDestProv] = useState('QC');
-    const [destCity, setDestCity] = useState('');
-    const [destSpot, setDestSpot] = useState('');
-
-    if (user.driverStatus !== 'approved') {
-        return (
-            <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
-                <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mb-6 animate-pulse">
-                    <Shield size={40} className="text-red-500" />
+        <div className="p-6 h-full flex flex-col pb-32">
+            <div className="flex items-center gap-4 mb-6">
+                <button onClick={() => setView('home')} className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center shadow-sm"><ChevronLeft size={20}/></button>
+                <div className="flex-1 bg-white h-12 rounded-xl border border-slate-200 flex items-center px-4 focus-within:border-indigo-500 transition-colors shadow-sm">
+                    <Search size={18} className="text-slate-400 mr-3"/>
+                    <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="City, airport, or station..." className="flex-1 outline-none font-bold text-slate-900 placeholder:text-slate-300" />
                 </div>
-                <h2 className="text-2xl font-extrabold text-slate-900 mb-2">{t.verificationRequired}</h2>
-                <p className="text-slate-500 mb-8 max-w-[260px] mx-auto font-medium">Drivers must be approved by our team before posting trips.</p>
-                <div className="space-y-3 w-full">
-                    <Button onClick={refreshUser} className="w-full flex items-center justify-center gap-2"><RefreshCw size={18}/> Check Status</Button>
-                    <Button onClick={() => setView('home')} variant="secondary">{t.backToHome}</Button>
-                </div>
-            </div>
-        );
-    }
-
-    const handleSubmit = () => {
-        if (!originCity || !destCity) {
-            alert("Please select both origin and destination cities.");
-            return;
-        }
-
-        const departure = new Date(`${form.date}T${form.time}`);
-        const arrival = new Date(departure.getTime() + 10800000); 
-        
-        const originStr = originSpot ? `${originCity} (${originSpot}), ${originProv}` : `${originCity}, ${originProv}`;
-        const destStr = destSpot ? `${destCity} (${destSpot}), ${destProv}` : `${destCity}, ${destProv}`;
-
-        const newRide: Ride = {
-            id: `ride-${Date.now()}`,
-            driver: user,
-            origin: originStr,
-            destination: destStr,
-            price: Number(form.price),
-            seatsAvailable: Number(form.seats),
-            totalSeats: Number(form.seats),
-            departureTime: departure,
-            arrivalTime: arrival,
-            stops: [], currency: 'CAD', luggage: {small:1, medium:1, large:0}, distanceKm: 250,
-            features: { instantBook: true, wifi: false, music: true, pets: false, smoking: false, winterTires: true }
-        };
-        onPublish(newRide);
-        setView('home');
-    };
-
-    return (
-        <div className="h-full bg-slate-50 flex flex-col">
-            <div className="px-6 pt-12 pb-4">
-                 <Header title={t.postRide} subtitle="Let's fill those empty seats" />
             </div>
             
-            <div className="flex-1 overflow-y-auto px-4 pb-32 no-scrollbar">
-                <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 space-y-6 relative overflow-hidden mb-4">
-                    <LocationInput 
-                        type="origin"
-                        label="Pick-up" 
-                        province={originProv} setProvince={setOriginProv}
-                        city={originCity} setCity={setOriginCity}
-                        spot={originSpot} setSpot={setOriginSpot}
-                    />
-
-                    <div className="w-full h-px bg-slate-100"></div>
-
-                    <LocationInput 
-                        type="destination"
-                        label="Drop-off" 
-                        province={destProv} setProvince={setDestProv}
-                        city={destCity} setCity={setDestCity}
-                        spot={destSpot} setSpot={setDestSpot}
-                    />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-200 transition-colors">
-                         <div className="text-slate-400 text-[10px] font-bold uppercase mb-2 flex items-center gap-1"><Calendar size={12}/> Date</div>
-                         <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full bg-transparent font-bold text-sm outline-none text-slate-900 cursor-pointer" />
-                     </div>
-                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-200 transition-colors">
-                         <div className="text-slate-400 text-[10px] font-bold uppercase mb-2 flex items-center gap-1"><Clock size={12}/> Time</div>
-                         <input type="time" value={form.time} onChange={e => setForm({...form, time: e.target.value})} className="w-full bg-transparent font-bold text-sm outline-none text-slate-900 cursor-pointer" />
-                     </div>
-                </div>
-                
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 mb-4 flex items-center justify-between">
-                     <div>
-                         <div className="text-slate-400 text-[10px] font-bold uppercase mb-1 flex items-center gap-1"><DollarSign size={12}/> Price per seat</div>
-                         <input type="number" value={form.price} onChange={e => setForm({...form, price: Number(e.target.value)})} className="bg-transparent font-extrabold text-2xl outline-none text-indigo-600 w-24" />
-                     </div>
-                     <div className="h-10 w-px bg-slate-100 mx-4"></div>
-                     <div className="flex-1">
-                         <div className="text-slate-400 text-[10px] font-bold uppercase mb-1 flex items-center gap-1"><Users size={12}/> Seats</div>
-                         <div className="flex items-center justify-between bg-slate-50 rounded-xl p-1">
-                             <button onClick={() => setForm(f => ({...f, seats: Math.max(1, f.seats - 1)}))} className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center font-bold text-slate-500 hover:text-indigo-600 transition-colors">-</button>
-                             <span className="font-bold text-lg text-slate-900">{form.seats}</span>
-                             <button onClick={() => setForm(f => ({...f, seats: Math.min(6, f.seats + 1)}))} className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center font-bold text-slate-500 hover:text-indigo-600 transition-colors">+</button>
-                         </div>
-                     </div>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                    <div className="p-4 border-b border-slate-50 bg-slate-50/50">
-                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2"><Briefcase size={14}/> Luggage</h3>
+            <div className="flex-1 overflow-y-auto no-scrollbar">
+                {filtered.length === 0 ? (
+                    <div className="text-center mt-20 opacity-40">
+                        <Map size={48} className="mx-auto mb-4"/>
+                        <p className="font-bold">No results found</p>
                     </div>
-                    <div className="divide-y divide-slate-50">
-                        <LuggageCounter label={t.small} value={form.luggage.small} onChange={(v) => setForm({...form, luggage: {...form.luggage, small: v}})} />
-                        <LuggageCounter label={t.medium} value={form.luggage.medium} onChange={(v) => setForm({...form, luggage: {...form.luggage, medium: v}})} />
-                        <LuggageCounter label={t.large} value={form.luggage.large} onChange={(v) => setForm({...form, luggage: {...form.luggage, large: v}})} />
-                    </div>
-                </div>
-
-                <div className="mt-8 mb-8">
-                     <Button onClick={handleSubmit} className="shadow-xl shadow-indigo-200 !py-4 !text-base">
-                        {t.publishRide}
-                        <ArrowRight size={20} />
-                     </Button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const SearchView = ({ allRides, setDetailRide, setView, lang }: any) => {
-    const t = translations[lang];
-    const [search, setSearch] = useState('');
-    const filtered = allRides.filter((r: Ride) => 
-        r.destination.toLowerCase().includes(search.toLowerCase()) || 
-        r.origin.toLowerCase().includes(search.toLowerCase())
-    );
-    return (
-        <div className="h-full bg-slate-50 p-6 pt-12 pb-32 overflow-y-auto no-scrollbar">
-            <h1 className="text-2xl font-extrabold mb-6 text-slate-900">{t.searchRides}</h1>
-            <div className="bg-white p-2 rounded-2xl border border-slate-200 flex items-center gap-3 mb-8 shadow-sm focus-within:shadow-md focus-within:border-indigo-500 transition-all">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
-                    <Search size={20} />
-                </div>
-                <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Where do you want to go?" className="flex-1 outline-none font-bold text-slate-900 text-lg placeholder:text-slate-300 h-12" />
-            </div>
-            
-            <div className="space-y-4">
-                {filtered.map((r: Ride) => (
-                    <RideCard key={r.id} ride={r} t={t} lang={lang} onClick={() => { setDetailRide(r); setView('ride-detail'); }} />
-                ))}
-                {filtered.length === 0 && (
-                    <div className="text-center py-20 opacity-50">
-                        <Map size={48} className="mx-auto mb-4 text-slate-300"/>
-                        <p className="font-bold text-slate-400">No rides found matching "{search}"</p>
-                    </div>
+                ) : (
+                    filtered.map((r: Ride) => <RideCard key={r.id} ride={r} onClick={() => { setDetailRide(r); setView('ride-detail'); }} />)
                 )}
             </div>
         </div>
     );
 };
 
-const RideDetailView = ({ ride, user, onBook, onDelete, setView, lang }: any) => {
+const RideDetailView = ({ ride, onBack, user }: any) => {
     if(!ride) return null;
-    const t = translations[lang];
     const [safety, setSafety] = useState('');
-    useEffect(() => {
-        generateRideSafetyBrief(ride.origin, ride.destination).then(setSafety);
-    }, [ride]);
+    useEffect(() => { generateRideSafetyBrief(ride.origin, ride.destination).then(setSafety); }, [ride]);
 
     return (
-        <div className="h-full bg-slate-50 flex flex-col overflow-y-auto pb-32 no-scrollbar">
-             <div className="relative h-72 shrink-0">
-                 <img src={getStaticMapUrl(ride.destination)} className="w-full h-full object-cover" />
-                 <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-slate-900/90"></div>
-                 <button onClick={() => setView('home')} className="absolute top-6 left-6 bg-white/20 backdrop-blur-md p-3 rounded-full text-white hover:bg-white/30 transition-colors"><ChevronLeft size={24}/></button>
-                 <div className="absolute bottom-0 left-0 w-full p-6 text-white">
-                     <h1 className="text-4xl font-extrabold mb-2 leading-tight">{ride.destination.split(',')[0]}</h1>
-                     <div className="flex items-center gap-4 text-sm font-bold opacity-90">
-                         <span className="bg-white/20 backdrop-blur px-3 py-1 rounded-full flex items-center gap-2"><Calendar size={14}/> {getDisplayDate(toLocalISOString(ride.departureTime), t, lang)}</span>
-                         <span className="flex items-center gap-1"><Users size={14}/> {ride.seatsAvailable} seats</span>
-                     </div>
-                 </div>
-             </div>
-             
-             <div className="p-6 space-y-6 -mt-6 relative z-10 rounded-t-3xl bg-slate-50">
-                 {safety && (
-                     <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl text-xs font-medium text-indigo-900 flex gap-3 items-start">
-                         <ShieldAlert className="shrink-0 text-indigo-600 mt-0.5" size={16} />
-                         <span className="leading-relaxed">{safety}</span>
+        <div className="h-full bg-white flex flex-col pb-24 overflow-y-auto no-scrollbar">
+            <div className="relative h-64 bg-slate-900 shrink-0">
+                <img src={getStaticMapUrl(ride.destination)} className="w-full h-full object-cover opacity-60" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
+                <button onClick={onBack} className="absolute top-6 left-6 w-10 h-10 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-white"><ChevronLeft/></button>
+                <div className="absolute bottom-6 left-6 right-6 text-white">
+                    <div className="text-3xl font-extrabold mb-1">${ride.price}</div>
+                    <div className="text-sm font-medium opacity-80 flex items-center gap-2"><Users size={14}/> {ride.seatsAvailable} seats available</div>
+                </div>
+            </div>
+            
+            <div className="p-6 -mt-4 bg-white rounded-t-3xl relative flex-1">
+                {safety && (
+                     <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-xl text-xs font-medium text-indigo-900 flex gap-3 items-start mb-6">
+                         <ShieldAlert className="shrink-0 text-indigo-600 mt-0.5" size={14} />
+                         <span>{safety}</span>
                      </div>
                  )}
                  
-                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4">
+                 <div className="flex items-center justify-between mb-8">
+                     <div className="flex items-center gap-3">
+                         <img src={ride.driver.avatar} className="w-12 h-12 rounded-full" />
+                         <div>
+                             <div className="font-bold text-slate-900">{ride.driver.firstName}</div>
+                             <div className="text-xs font-bold text-slate-400 flex items-center gap-1"><Star size={10} className="fill-yellow-400 text-yellow-400"/> {ride.driver.rating.toFixed(1)}</div>
+                         </div>
+                     </div>
+                     <div className="flex gap-2">
+                        {ride.features.instantBook && <div className="p-2 rounded-full bg-green-50 text-green-600"><Zap size={18} fill="currentColor"/></div>}
+                        <div className="p-2 rounded-full bg-slate-50 text-slate-400"><MessageSquare size={18}/></div>
+                     </div>
+                 </div>
+
+                 <div className="relative pl-6 space-y-8 mb-8">
+                     <div className="absolute left-1.5 top-2 bottom-6 w-0.5 bg-slate-100"></div>
                      <div className="relative">
-                         <img src={ride.driver.avatar} className="w-14 h-14 rounded-full border-2 border-slate-100" />
-                         <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1 shadow-sm">
-                             <div className="bg-green-500 w-3 h-3 rounded-full border-2 border-white"></div>
-                         </div>
+                         <div className="absolute -left-6 top-1 w-3 h-3 rounded-full bg-white border-2 border-slate-300"></div>
+                         <div className="text-xs font-bold text-slate-400 uppercase mb-1">Pick up</div>
+                         <div className="font-bold text-lg text-slate-900">{ride.origin}</div>
                      </div>
-                     <div className="flex-1">
-                         <div className="font-bold text-lg text-slate-900">{ride.driver.firstName}</div>
-                         <div className="text-xs text-slate-500 font-bold flex items-center gap-1 mt-0.5"><Star size={12} className="text-yellow-400 fill-yellow-400"/> {ride.driver.rating} • {ride.driver.totalRides} rides</div>
-                     </div>
-                     <div className="text-right">
-                         <div className="text-2xl font-extrabold text-indigo-600">${ride.price}</div>
-                         <div className="text-[10px] font-bold text-slate-400 uppercase">per seat</div>
-                     </div>
-                 </div>
-
-                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex gap-5">
-                     <div className="flex flex-col items-center pt-2">
-                         <div className="w-3 h-3 rounded-full bg-indigo-600 ring-4 ring-indigo-50"></div>
-                         <div className="w-0.5 flex-1 bg-slate-100 my-1"></div>
-                         <div className="w-3 h-3 rounded-full bg-pink-600 ring-4 ring-pink-50"></div>
-                     </div>
-                     <div className="space-y-8 flex-1 py-1">
-                         <div>
-                             <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{t.origin}</div>
-                             <div className="font-bold text-lg text-slate-900 leading-tight">{ride.origin}</div>
-                         </div>
-                         <div>
-                             <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{t.destination}</div>
-                             <div className="font-bold text-lg text-slate-900 leading-tight">{ride.destination}</div>
-                         </div>
-                     </div>
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-3">
-                     <div className="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col items-center justify-center text-center gap-2">
-                         <Briefcase className="text-slate-300" size={24}/>
-                         <span className="text-xs font-bold text-slate-600">Max Luggage</span>
-                         <span className="text-xs font-medium text-slate-400">Medium Size</span>
-                     </div>
-                     <div className="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col items-center justify-center text-center gap-2">
-                         <Zap className="text-green-500" size={24}/>
-                         <span className="text-xs font-bold text-slate-600">Instant Book</span>
-                         <span className="text-xs font-medium text-slate-400">Enabled</span>
+                     <div className="relative">
+                         <div className="absolute -left-6 top-1 w-3 h-3 rounded-full bg-white border-2 border-indigo-600"></div>
+                         <div className="text-xs font-bold text-slate-400 uppercase mb-1">Drop off</div>
+                         <div className="font-bold text-lg text-slate-900">{ride.destination}</div>
                      </div>
                  </div>
                  
-                 <div className="pt-4">
-                     {user.id === ride.driver.id ? (
-                          <Button variant="danger" className="!py-4" onClick={() => onDelete(ride.id)}>{t.cancelTrip}</Button>
-                     ) : (
-                          <Button className="!py-4 shadow-xl shadow-indigo-200" onClick={() => onBook(ride)}>{t.bookSeat}</Button>
-                     )}
-                 </div>
-             </div>
+                 <Button onClick={() => alert("Booking Simulated")} className="shadow-xl shadow-indigo-200">Book Ride</Button>
+            </div>
         </div>
     );
 };
 
-const WalletView = ({lang}: any) => {
-    const t = translations[lang];
-    return (
-        <div className="p-6 pt-12 pb-32 h-full bg-slate-50 overflow-y-auto no-scrollbar">
-            <h1 className="text-2xl font-extrabold mb-6 text-slate-900">{t.wallet}</h1>
-            <div className="bg-slate-900 text-white p-8 rounded-[2rem] mb-8 shadow-2xl shadow-slate-900/20 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500 rounded-full blur-[60px] opacity-20"></div>
-                <div className="relative z-10">
-                    <div className="text-white/60 text-sm font-bold uppercase tracking-wider mb-2">{t.totalBalance}</div>
-                    <div className="text-5xl font-extrabold tracking-tight">$128.50</div>
-                </div>
-            </div>
-            <h3 className="font-bold text-lg text-slate-900 mb-4 px-1">{t.recentActivity}</h3>
-            <div className="space-y-3">
-                 <div className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm">
-                     <div className="flex items-center gap-4">
-                         <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-600">
-                             <ArrowRight size={18} className="-rotate-45"/>
-                         </div>
-                         <div>
-                             <div className="font-bold text-slate-900">Ride Payout</div>
-                             <div className="text-xs text-slate-400 font-bold">Today, 2:30 PM</div>
-                         </div>
-                     </div>
-                     <div className="font-bold text-green-600 text-lg">+$45.00</div>
-                 </div>
-            </div>
-        </div>
-    )
-};
-
-const ProfileView = ({ user, onLogout, lang, setLang }: any) => {
-    const t = translations[lang];
-    return (
-        <div className="p-6 pt-12 pb-32 h-full bg-slate-50">
-            <div className="flex flex-col items-center mb-10">
-                <div className="relative">
-                    <img src={user.avatar} className="w-28 h-28 rounded-full border-4 border-white shadow-xl mb-4 object-cover" />
-                    {user.isVerified && <div className="absolute bottom-4 right-0 bg-blue-500 text-white p-1.5 rounded-full border-4 border-white"><CheckCircle2 size={16}/></div>}
-                </div>
-                <h2 className="text-2xl font-extrabold text-slate-900">{user.firstName} {user.lastName}</h2>
-                <div className="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full text-xs font-bold mt-2 uppercase tracking-wide">{user.role}</div>
-            </div>
-            
-            <div className="bg-white rounded-3xl p-2 shadow-sm border border-slate-100 mb-6 flex">
-                 <button onClick={() => setLang('en')} className={`flex-1 py-4 rounded-2xl font-bold text-sm transition-all ${lang === 'en' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>English</button>
-                 <button onClick={() => setLang('fr')} className={`flex-1 py-4 rounded-2xl font-bold text-sm transition-all ${lang === 'fr' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Français</button>
-            </div>
-            
-            <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden mb-6">
-                 <button className="w-full p-5 flex items-center justify-between border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                     <span className="font-bold text-slate-700">Edit Profile</span>
-                     <ChevronDown className="-rotate-90 text-slate-300" size={16}/>
-                 </button>
-                 <button className="w-full p-5 flex items-center justify-between border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                     <span className="font-bold text-slate-700">Notifications</span>
-                     <ChevronDown className="-rotate-90 text-slate-300" size={16}/>
-                 </button>
-                 <button className="w-full p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                     <span className="font-bold text-slate-700">Help & Support</span>
-                     <ChevronDown className="-rotate-90 text-slate-300" size={16}/>
-                 </button>
-            </div>
-
-            <Button variant="danger" onClick={onLogout} className="w-full flex items-center justify-center gap-2 !py-4"><LogOut size={18}/> {t.signOut}</Button>
-            
-            <p className="text-center text-xs font-bold text-slate-300 mt-8">Version 1.2.0</p>
-        </div>
-    )
-};
-
-const AdminView = ({lang}: any) => {
-    return (
-        <div className="p-6 pt-12 pb-32 h-full bg-slate-50">
-            <h1 className="text-2xl font-extrabold mb-6 text-slate-900">Admin Dashboard</h1>
-            <LeaderboardChart />
-        </div>
-    )
-};
+// --- Main App Logic ---
 
 export const App = () => {
   const [view, setView] = useState<ViewState>('auth');
   const [user, setUser] = useState<UserType | null>(null);
-  const [lang, setLang] = useState<Language>('en');
   const [rides, setRides] = useState<Ride[]>([]);
   const [detailRide, setDetailRide] = useState<Ride | null>(null);
 
-  // Initialize Data
   useEffect(() => {
+    // Robust data loading with fallback
     try {
-        const loadedRides = localStorage.getItem(STORAGE_KEY_RIDES);
-        if (loadedRides) {
-           // parsing dates
-           const parsed = JSON.parse(loadedRides).map((r: any) => ({
-               ...r,
-               departureTime: new Date(r.departureTime),
-               arrivalTime: new Date(r.arrivalTime)
-           }));
-           setRides(parsed);
+        const stored = localStorage.getItem(STORAGE_KEY_RIDES);
+        if (stored) {
+            setRides(JSON.parse(stored).map((r: any) => ({...r, departureTime: new Date(r.departureTime), arrivalTime: new Date(r.arrivalTime)})));
         } else {
-           setRides(generateMockRides());
+            setRides(generateMockRides());
         }
-    } catch (e) {
-        console.error("Storage Error - Resetting Rides", e);
-        const mocks = generateMockRides();
-        setRides(mocks);
-        localStorage.setItem(STORAGE_KEY_RIDES, JSON.stringify(mocks));
-    }
-    
-    // Check for existing user session
-    try {
-        // We do not auto-login to allow user to see auth screen if data is stale, 
-        // but typically you would check here.
-    } catch (e) {
-        console.error("User storage error", e);
-        localStorage.removeItem(STORAGE_KEY_USERS);
+    } catch(e) {
+        console.error("Data corruption detected, resetting", e);
+        setRides(generateMockRides());
     }
   }, []);
 
-  const handleLogin = (u: UserType) => {
-      setUser(u);
-      setView('home');
-  };
-
-  const handlePublish = (ride: Ride) => {
-      const newRides = [...rides, ride];
-      setRides(newRides);
-      localStorage.setItem(STORAGE_KEY_RIDES, JSON.stringify(newRides));
-  };
-  
-  const handleBook = (ride: Ride) => {
-      alert("Booking confirmed! (Simulation)");
-      setView('home');
-  };
-
-  const handleDeleteRide = (id: string) => {
-      const newRides = rides.filter(r => r.id !== id);
-      setRides(newRides);
-      localStorage.setItem(STORAGE_KEY_RIDES, JSON.stringify(newRides));
-      setView('home');
-  };
-
   if (!user) {
-      return <AuthView onLogin={handleLogin} lang={lang} setLang={setLang} />;
-  }
-
-  if (user.role === 'driver' && user.driverStatus === 'new') {
-      return <DriverOnboarding user={user} updateUser={setUser} onComplete={() => setView('home')} lang={lang} />;
+      // Simple Mock Auth for brevity
+      return (
+          <div className="h-screen bg-white flex flex-col items-center justify-center p-8">
+              <Logo size={140} className="mb-8" />
+              <h1 className="text-2xl font-extrabold mb-2 text-slate-900">Welcome to Alloride</h1>
+              <p className="text-slate-500 mb-8 text-center font-medium">The modern way to travel city to city.</p>
+              <Button onClick={() => setUser(MOCK_USER_TEMPLATE)} className="w-full mb-3">Log in as Passenger</Button>
+              <Button onClick={() => setUser({...MOCK_USER_TEMPLATE, role: 'driver', firstName: 'Driver Dave'})} variant="secondary" className="w-full">Log in as Driver</Button>
+          </div>
+      );
   }
 
   return (
-    <div className="h-screen w-full bg-slate-900 flex justify-center overflow-hidden">
-        <div className="w-full max-w-md bg-slate-50 relative shadow-2xl h-full flex flex-col">
+    <div className="h-screen w-full bg-slate-50 flex justify-center overflow-hidden font-sans">
+        <div className="w-full max-w-md bg-white h-full relative shadow-2xl flex flex-col">
             <div className="flex-1 overflow-hidden relative">
-                {view === 'home' && <HomeView user={user} allRides={rides} bookedRides={[]} setDetailRide={setDetailRide} setView={setView} lang={lang} />}
-                {view === 'search' && <SearchView allRides={rides} setDetailRide={setDetailRide} setView={setView} lang={lang} />}
-                {view === 'post' && <PostRideView user={user} onPublish={handlePublish} setView={setView} lang={lang} refreshUser={() => {}} />}
-                {view === 'wallet' && <WalletView lang={lang} />}
-                {view === 'profile' && <ProfileView user={user} onLogout={() => setUser(null)} lang={lang} setLang={setLang} />}
-                {view === 'ride-detail' && <RideDetailView ride={detailRide} user={user} onBook={handleBook} onDelete={handleDeleteRide} setView={setView} lang={lang} />}
-                {view === 'admin' && <AdminView lang={lang} />}
+                {view === 'home' && <HomeView user={user} rides={rides} setDetailRide={setDetailRide} setView={setView} />}
+                {view === 'search' && <SearchAndFilterView rides={rides} setDetailRide={setDetailRide} setView={setView} />}
+                {view === 'ride-detail' && <RideDetailView ride={detailRide} onBack={() => setView('home')} user={user} />}
+                {view === 'profile' && <div className="p-8 text-center"><h1 className="text-2xl font-bold mb-4">Profile</h1><Button onClick={() => setUser(null)} variant="danger">Log Out</Button></div>}
+                {/* Add other views (Post, Wallet) as needed */}
             </div>
-            <Navigation currentView={view} setView={setView} lang={lang} userRole={user.role} />
+            
+            {/* Poparide-style bottom nav */}
+            <div className="border-t border-slate-100 bg-white/90 backdrop-blur pb-6 pt-2 px-6 flex justify-between items-center relative z-50">
+                 <button onClick={() => setView('home')} className={`flex flex-col items-center gap-1 ${view === 'home' ? 'text-indigo-600' : 'text-slate-300'}`}>
+                     <Search size={24} strokeWidth={view === 'home' ? 3 : 2} />
+                     <span className="text-[10px] font-bold">Search</span>
+                 </button>
+                 <button onClick={() => setView('post')} className={`flex flex-col items-center gap-1 ${view === 'post' ? 'text-indigo-600' : 'text-slate-300'}`}>
+                     <Plus size={24} strokeWidth={view === 'post' ? 3 : 2} />
+                     <span className="text-[10px] font-bold">Post</span>
+                 </button>
+                 <button onClick={() => setView('profile')} className={`flex flex-col items-center gap-1 ${view === 'profile' ? 'text-indigo-600' : 'text-slate-300'}`}>
+                     <User size={24} strokeWidth={view === 'profile' ? 3 : 2} />
+                     <span className="text-[10px] font-bold">Profile</span>
+                 </button>
+            </div>
         </div>
     </div>
   );

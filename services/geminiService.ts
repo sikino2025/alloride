@@ -1,14 +1,30 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-// Initialize the Google GenAI SDK with the API key from environment variables.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper to safely get the AI instance. 
+// This prevents the app from crashing on load if process is undefined (common in browser builds).
+const getAI = () => {
+  try {
+    // Only access process.env.API_KEY when actually needed
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      console.warn("API Key is missing");
+      return null;
+    }
+    return new GoogleGenAI({ apiKey: apiKey });
+  } catch (error) {
+    console.error("Failed to initialize GoogleGenAI", error);
+    return null;
+  }
+};
 
 /**
  * Generates a short safety briefing for a ride between two locations.
- * Uses gemini-3-flash-preview for basic text tasks.
  */
 export const generateRideSafetyBrief = async (origin: string, destination: string): Promise<string> => {
+  const ai = getAI();
+  if (!ai) return "Drive safely and verify passenger ID.";
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -23,9 +39,11 @@ export const generateRideSafetyBrief = async (origin: string, destination: strin
 
 /**
  * Optimizes the ride description to be catchy and friendly.
- * Uses gemini-3-flash-preview for basic text tasks.
  */
 export const optimizeRideDescription = async (from: string, to: string, stops: string[]): Promise<string> => {
+  const ai = getAI();
+  if (!ai) return `Trip from ${from} to ${to}.`;
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -48,10 +66,12 @@ export const calculateAIPrice = async (distance: number, demandLevel: 'low' | 'h
 
 /**
  * Resolves a natural language meeting point description into a specific address or place name.
- * Uses gemini-2.5-flash for Maps grounding support as required by the guidelines.
  */
 export const resolvePickupLocation = async (description: string, defaultOrigin: string) => {
   const defaultUri = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(defaultOrigin)}`;
+  const ai = getAI();
+  
+  if (!ai) return { address: defaultOrigin, uri: defaultUri };
   
   try {
     const response = await ai.models.generateContent({
@@ -91,8 +111,11 @@ export const resolvePickupLocation = async (description: string, defaultOrigin: 
  * Returns a static map URL for a given address using Google Maps Static Maps API.
  */
 export const getStaticMapUrl = (address: string) => {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) return `https://picsum.photos/800/600?random=${Date.now()}`;
-    // Use the API key directly from environment variables.
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(address)}&zoom=15&size=800x600&maptype=roadmap&markers=color:red%7C${encodeURIComponent(address)}&key=${apiKey}`;
+    try {
+        const apiKey = process.env.API_KEY;
+        if (!apiKey) return `https://picsum.photos/800/600?random=${Date.now()}`;
+        return `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(address)}&zoom=15&size=800x600&maptype=roadmap&markers=color:red%7C${encodeURIComponent(address)}&key=${apiKey}`;
+    } catch (e) {
+        return `https://picsum.photos/800/600?random=${Date.now()}`;
+    }
 };
