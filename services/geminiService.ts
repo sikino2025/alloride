@@ -1,19 +1,18 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-// Helper to safely get the AI instance. 
-// This prevents the app from crashing on load if process is undefined (common in browser builds).
-const getAI = () => {
+// CRITICAL FIX: Do not initialize 'ai' at the top level.
+// This causes "White Screen of Death" if process.env is undefined during initial bundle load.
+const getAiClient = () => {
   try {
-    // Only access process.env.API_KEY when actually needed
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
-      console.warn("API Key is missing");
+      console.warn("API_KEY is missing in environment variables.");
       return null;
     }
-    return new GoogleGenAI({ apiKey: apiKey });
+    return new GoogleGenAI({ apiKey });
   } catch (error) {
-    console.error("Failed to initialize GoogleGenAI", error);
+    console.error("Failed to initialize Gemini Client:", error);
     return null;
   }
 };
@@ -22,7 +21,7 @@ const getAI = () => {
  * Generates a short safety briefing for a ride between two locations.
  */
 export const generateRideSafetyBrief = async (origin: string, destination: string): Promise<string> => {
-  const ai = getAI();
+  const ai = getAiClient();
   if (!ai) return "Drive safely and verify passenger ID.";
 
   try {
@@ -41,7 +40,7 @@ export const generateRideSafetyBrief = async (origin: string, destination: strin
  * Optimizes the ride description to be catchy and friendly.
  */
 export const optimizeRideDescription = async (from: string, to: string, stops: string[]): Promise<string> => {
-  const ai = getAI();
+  const ai = getAiClient();
   if (!ai) return `Trip from ${from} to ${to}.`;
 
   try {
@@ -69,8 +68,8 @@ export const calculateAIPrice = async (distance: number, demandLevel: 'low' | 'h
  */
 export const resolvePickupLocation = async (description: string, defaultOrigin: string) => {
   const defaultUri = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(defaultOrigin)}`;
-  const ai = getAI();
-  
+  const ai = getAiClient();
+
   if (!ai) return { address: defaultOrigin, uri: defaultUri };
   
   try {
