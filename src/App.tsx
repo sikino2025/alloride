@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Navigation } from '../components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from '../types';
 import { translations, Language } from '../utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase, TrendingUp, Check, X } from 'lucide-react';
 import { LeaderboardChart } from '../components/LeaderboardChart';
 import { getStaticMapUrl, generateRideSafetyBrief } from '../services/geminiService';
 import { Logo } from '../components/Logo';
@@ -187,6 +187,7 @@ const Button = ({ children, onClick, variant = 'primary', className = '', fullWi
     primary: "bg-slate-900 text-white hover:bg-slate-800",
     secondary: "bg-white text-slate-800 border border-slate-200 hover:bg-slate-50",
     danger: "bg-red-50 text-red-600 hover:bg-red-100",
+    success: "bg-green-600 text-white hover:bg-green-700",
     outline: "border-2 border-slate-200 text-slate-600 hover:bg-slate-50"
   };
   return (
@@ -304,7 +305,6 @@ const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvi
 const RideCard = ({ ride, onClick, t, lang, isPast = false }: any) => {
   const startTime = ride.departureTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const endTime = ride.arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  // const duration = Math.round((ride.arrivalTime.getTime() - ride.departureTime.getTime()) / 3600000 * 10) / 10;
   const rideDate = ride.departureTime.toLocaleDateString(lang === 'fr' ? 'fr-CA' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const isBooked = ride.bookedSeats && ride.bookedSeats > 0;
 
@@ -540,8 +540,11 @@ const HomeView = ({ user, allRides, bookedRides, setDetailRide, setView, lang }:
     const t = translations[lang];
     const now = new Date().getTime();
     
-    // Filter out past rides for Search
-    const upcomingRides = allRides.filter((r: Ride) => r.departureTime.getTime() > now && r.seatsAvailable > 0);
+    // Filter out past rides for Search. Sort by date.
+    const upcomingRides = allRides
+        .filter((r: Ride) => r.departureTime.getTime() > now && r.seatsAvailable > 0)
+        .sort((a: Ride, b: Ride) => a.departureTime.getTime() - b.departureTime.getTime());
+        
     const myHistory = user.role === 'driver' ? allRides.filter((r: Ride) => r.driver.id === user.id) : [];
 
     return (
@@ -941,11 +944,172 @@ const ProfileView = ({ user, onLogout, lang, setLang }: any) => {
     )
 };
 
-const AdminView = ({lang}: any) => {
+const AdminView = ({ lang, allUsers, rides, onVerifyDriver }: any) => {
+    const t = translations[lang];
+    const [activeTab, setActiveTab] = useState<'overview' | 'drivers' | 'rides'>('overview');
+    
+    // Derived state
+    const pendingDrivers = useMemo(() => allUsers.filter((u: UserType) => u.driverStatus === 'pending'), [allUsers]);
+    const upcomingRides = useMemo(() => rides.filter((r: Ride) => new Date(r.departureTime) > new Date()).sort((a:Ride,b:Ride)=> a.departureTime.getTime() - b.departureTime.getTime()), [rides]);
+    const pastRides = useMemo(() => rides.filter((r: Ride) => new Date(r.departureTime) <= new Date()), [rides]);
+    
+    const [selectedDriver, setSelectedDriver] = useState<UserType | null>(null);
+
     return (
-        <div className="p-6 pt-12 pb-32 h-full bg-slate-50">
-            <h1 className="text-2xl font-extrabold mb-6 text-slate-900">Admin Dashboard</h1>
-            <LeaderboardChart />
+        <div className="p-6 pt-12 pb-32 h-full bg-slate-50 overflow-y-auto no-scrollbar">
+            <h1 className="text-2xl font-extrabold mb-6 text-slate-900">{t.adminDashboard}</h1>
+            
+            {/* Tabs */}
+            <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm mb-6">
+                <button onClick={() => setActiveTab('overview')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'overview' ? 'bg-slate-900 text-white shadow' : 'text-slate-500'}`}>Overview</button>
+                <button onClick={() => setActiveTab('drivers')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'drivers' ? 'bg-slate-900 text-white shadow' : 'text-slate-500'}`}>
+                    Drivers {pendingDrivers.length > 0 && <span className="bg-red-500 text-white px-1.5 py-0.5 rounded-full text-[10px] ml-1">{pendingDrivers.length}</span>}
+                </button>
+                <button onClick={() => setActiveTab('rides')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'rides' ? 'bg-slate-900 text-white shadow' : 'text-slate-500'}`}>Trips</button>
+            </div>
+
+            {activeTab === 'overview' && (
+                <div className="space-y-6">
+                    <LeaderboardChart />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                            <div className="text-slate-400 text-[10px] font-bold uppercase mb-1">Total Users</div>
+                            <div className="text-2xl font-extrabold text-slate-900">{allUsers.length}</div>
+                        </div>
+                        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                            <div className="text-slate-400 text-[10px] font-bold uppercase mb-1">Total Rides</div>
+                            <div className="text-2xl font-extrabold text-slate-900">{rides.length}</div>
+                        </div>
+                         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                            <div className="text-slate-400 text-[10px] font-bold uppercase mb-1">Pending</div>
+                            <div className="text-2xl font-extrabold text-amber-500">{pendingDrivers.length}</div>
+                        </div>
+                         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                            <div className="text-slate-400 text-[10px] font-bold uppercase mb-1">Revenue</div>
+                            <div className="text-2xl font-extrabold text-green-600">$12,450</div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'drivers' && (
+                <div className="space-y-4">
+                     {selectedDriver ? (
+                         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-lg animate-float-in">
+                             <button onClick={() => setSelectedDriver(null)} className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-500"><ChevronLeft size={16}/> Back to list</button>
+                             <div className="flex items-center gap-4 mb-6">
+                                 <img src={selectedDriver.avatar} className="w-16 h-16 rounded-full border-2 border-slate-100"/>
+                                 <div>
+                                     <div className="text-xl font-bold">{selectedDriver.firstName} {selectedDriver.lastName}</div>
+                                     <div className="text-xs font-bold text-slate-400">{selectedDriver.email}</div>
+                                     <div className="text-xs font-bold text-slate-400">{selectedDriver.phone}</div>
+                                 </div>
+                             </div>
+                             
+                             <h3 className="font-bold text-sm mb-3">Vehicle</h3>
+                             <div className="bg-slate-50 p-3 rounded-xl mb-6 text-sm text-slate-700">
+                                 <span className="font-bold">{selectedDriver.vehicle?.year} {selectedDriver.vehicle?.make} {selectedDriver.vehicle?.model}</span>
+                                 <div className="text-xs text-slate-500">Plate: {selectedDriver.vehicle?.plate}</div>
+                             </div>
+
+                             <h3 className="font-bold text-sm mb-3">Documents</h3>
+                             <div className="space-y-3 mb-6">
+                                 {selectedDriver.documentsData?.license ? (
+                                     <div className="border rounded-xl overflow-hidden">
+                                         <div className="bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase text-slate-500">License</div>
+                                         <img src={selectedDriver.documentsData.license} className="w-full object-cover max-h-40" />
+                                     </div>
+                                 ) : <div className="text-red-500 text-xs">Missing License</div>}
+                                 
+                                  {selectedDriver.documentsData?.insurance ? (
+                                     <div className="border rounded-xl overflow-hidden">
+                                         <div className="bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase text-slate-500">Insurance</div>
+                                         <img src={selectedDriver.documentsData.insurance} className="w-full object-cover max-h-40" />
+                                     </div>
+                                 ) : <div className="text-red-500 text-xs">Missing Insurance</div>}
+                                 
+                                  {selectedDriver.documentsData?.photo ? (
+                                     <div className="border rounded-xl overflow-hidden">
+                                         <div className="bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase text-slate-500">Selfie</div>
+                                         <img src={selectedDriver.documentsData.photo} className="w-full object-cover max-h-40" />
+                                     </div>
+                                 ) : <div className="text-red-500 text-xs">Missing Photo</div>}
+                             </div>
+
+                             <div className="flex gap-3">
+                                 <Button variant="danger" onClick={() => { onVerifyDriver(selectedDriver.id, false); setSelectedDriver(null); }}>Reject</Button>
+                                 <Button variant="success" onClick={() => { onVerifyDriver(selectedDriver.id, true); setSelectedDriver(null); }}>Approve Driver</Button>
+                             </div>
+                         </div>
+                     ) : (
+                        <>
+                             {pendingDrivers.length === 0 && <div className="text-center py-10 text-slate-400 font-bold text-sm">No pending approvals</div>}
+                             {pendingDrivers.map(driver => (
+                                 <div key={driver.id} onClick={() => setSelectedDriver(driver)} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between cursor-pointer hover:border-indigo-300 transition-colors">
+                                     <div className="flex items-center gap-3">
+                                         <div className="relative">
+                                             <img src={driver.avatar} className="w-12 h-12 rounded-full border border-slate-100"/>
+                                             <div className="absolute -bottom-1 -right-1 bg-amber-500 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-[8px] text-white font-bold">!</div>
+                                         </div>
+                                         <div>
+                                             <div className="font-bold text-slate-900">{driver.firstName} {driver.lastName}</div>
+                                             <div className="text-xs text-slate-500">Applied to be driver</div>
+                                         </div>
+                                     </div>
+                                     <ChevronLeft className="rotate-180 text-slate-300" size={20}/>
+                                 </div>
+                             ))}
+                        </>
+                     )}
+                </div>
+            )}
+
+            {activeTab === 'rides' && (
+                <div className="space-y-6">
+                    <div>
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Upcoming ({upcomingRides.length})</h3>
+                        {upcomingRides.length === 0 ? <p className="text-sm text-slate-400 italic">No upcoming rides</p> : 
+                            upcomingRides.map(ride => (
+                                <div key={ride.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm mb-3">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="text-xs font-bold text-slate-500">{new Date(ride.departureTime).toLocaleDateString()}</div>
+                                        <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">Scheduled</div>
+                                    </div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="font-bold text-slate-900">{ride.origin.split(',')[0]}</div>
+                                        <ArrowRight size={14} className="text-slate-300"/>
+                                        <div className="font-bold text-slate-900">{ride.destination.split(',')[0]}</div>
+                                    </div>
+                                    <div className="flex items-center justify-between border-t border-slate-50 pt-2">
+                                         <div className="flex items-center gap-2">
+                                             <img src={ride.driver.avatar} className="w-5 h-5 rounded-full"/>
+                                             <span className="text-xs font-bold text-slate-600">{ride.driver.firstName}</span>
+                                         </div>
+                                         <span className="text-indigo-600 font-extrabold text-sm">${ride.price}</span>
+                                    </div>
+                                </div>
+                            ))
+                        }
+                    </div>
+
+                    <div>
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Past ({pastRides.length})</h3>
+                        {pastRides.map(ride => (
+                             <div key={ride.id} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-3 opacity-75">
+                                 <div className="flex justify-between items-start mb-2">
+                                     <div className="text-xs font-bold text-slate-500">{new Date(ride.departureTime).toLocaleDateString()}</div>
+                                     <div className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase">Completed</div>
+                                 </div>
+                                 <div className="flex items-center gap-2">
+                                     <div className="font-bold text-slate-900">{ride.origin.split(',')[0]}</div>
+                                     <ArrowRight size={14} className="text-slate-300"/>
+                                     <div className="font-bold text-slate-900">{ride.destination.split(',')[0]}</div>
+                                 </div>
+                             </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     )
 };
@@ -956,12 +1120,13 @@ export const App = () => {
   const [lang, setLang] = useState<Language>('en');
   const [rides, setRides] = useState<Ride[]>([]);
   const [detailRide, setDetailRide] = useState<Ride | null>(null);
+  const [allUsers, setAllUsers] = useState<UserType[]>([]);
 
   // Initialize Data
   useEffect(() => {
+    // Load Rides
     const loadedRides = localStorage.getItem(STORAGE_KEY_RIDES);
     if (loadedRides) {
-       // parsing dates
        const parsed = JSON.parse(loadedRides).map((r: any) => ({
            ...r,
            departureTime: new Date(r.departureTime),
@@ -972,13 +1137,17 @@ export const App = () => {
        setRides(generateMockRides());
     }
     
-    // Check for existing user session
-    // const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+    // Load Users for Admin
+    const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+    setAllUsers(storedUsers);
   }, []);
 
   const handleLogin = (u: UserType) => {
       setUser(u);
       setView('home');
+      // Refresh user list in case a new user signed up
+      const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+      setAllUsers(storedUsers);
   };
 
   const handlePublish = (ride: Ride) => {
@@ -999,6 +1168,25 @@ export const App = () => {
       setView('home');
   };
 
+  const handleVerifyDriver = (userId: string, isApproved: boolean) => {
+      const updatedUsers = allUsers.map(u => {
+          if (u.id === userId) {
+              return { ...u, driverStatus: isApproved ? 'approved' : 'rejected', isVerified: isApproved };
+          }
+          return u;
+      });
+      setAllUsers(updatedUsers as UserType[]);
+      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
+      alert(`Driver ${isApproved ? 'Approved' : 'Rejected'}`);
+  };
+
+  const handleRefreshUser = () => {
+      if(!user) return;
+      const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+      const updatedSelf = storedUsers.find((u:UserType) => u.id === user.id);
+      if(updatedSelf) setUser(updatedSelf);
+  };
+
   if (!user) {
       return <AuthView onLogin={handleLogin} lang={lang} setLang={setLang} />;
   }
@@ -1013,11 +1201,11 @@ export const App = () => {
             <div className="flex-1 overflow-hidden relative">
                 {view === 'home' && <HomeView user={user} allRides={rides} bookedRides={[]} setDetailRide={setDetailRide} setView={setView} lang={lang} />}
                 {view === 'search' && <SearchView allRides={rides} setDetailRide={setDetailRide} setView={setView} lang={lang} />}
-                {view === 'post' && <PostRideView user={user} onPublish={handlePublish} setView={setView} lang={lang} refreshUser={() => {}} />}
+                {view === 'post' && <PostRideView user={user} onPublish={handlePublish} setView={setView} lang={lang} refreshUser={handleRefreshUser} />}
                 {view === 'wallet' && <WalletView lang={lang} />}
                 {view === 'profile' && <ProfileView user={user} onLogout={() => setUser(null)} lang={lang} setLang={setLang} />}
                 {view === 'ride-detail' && <RideDetailView ride={detailRide} user={user} onBook={handleBook} onDelete={handleDeleteRide} setView={setView} lang={lang} />}
-                {view === 'admin' && <AdminView lang={lang} />}
+                {view === 'admin' && <AdminView lang={lang} allUsers={allUsers} rides={rides} onVerifyDriver={handleVerifyDriver} />}
             </div>
             <Navigation currentView={view} setView={setView} lang={lang} userRole={user.role} />
         </div>
