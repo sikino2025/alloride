@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from './types';
 import { translations, Language } from './utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, Camera, MessageSquare, Plus, Trash2, AlertCircle, LogOut, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase } from 'lucide-react';
 import { LeaderboardChart } from './components/LeaderboardChart';
 import { getStaticMapUrl, generateRideSafetyBrief } from './services/geminiService';
 import { Logo } from './components/Logo';
@@ -28,8 +28,8 @@ const compressImage = (file: File): Promise<string> => {
             img.src = event.target.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 500;
-                const MAX_HEIGHT = 500;
+                const MAX_WIDTH = 800;
+                const MAX_HEIGHT = 800;
                 let width = img.width;
                 let height = img.height;
                 if (width > height) {
@@ -48,7 +48,7 @@ const compressImage = (file: File): Promise<string> => {
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
                     ctx.drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL('image/jpeg', 0.5));
+                    resolve(canvas.toDataURL('image/jpeg', 0.7));
                 } else {
                     reject(new Error("Canvas failed"));
                 }
@@ -72,8 +72,8 @@ const getDisplayDate = (dateStr: string, t: any, lang: string) => {
 };
 
 // --- Data & Constants ---
-const STORAGE_KEY_RIDES = 'alloride_rides_v9'; 
-const STORAGE_KEY_USERS = 'alloride_users_v1';
+const STORAGE_KEY_RIDES = 'alloride_rides_v11'; 
+const STORAGE_KEY_USERS = 'alloride_users_v3';
 
 const MOCK_USER_TEMPLATE: UserType = {
   id: 'u1', firstName: 'Alex', lastName: 'Rivera', email: 'alex@example.com', phone: '514-555-0199', role: 'passenger', avatar: 'https://i.pravatar.cc/150?u=alex', isVerified: true, driverStatus: 'approved', documentsUploaded: { license: true, insurance: true, photo: true }, rating: 4.9, totalRides: 142,
@@ -88,58 +88,35 @@ const PROVINCE_NAMES: Record<string, string> = {
 
 const CITIES_AND_SPOTS: Record<string, Record<string, string[]>> = {
   "QC": {
-    "Montreal": ["Berri-UQAM Metro", "Radisson Metro", "Trudeau Airport (YUL)", "Côte-Vertu Metro", "Namur Metro", "McGill University", "Concordia University", "Complexe Desjardins"],
-    "Quebec City": ["Gare du Palais", "Sainte-Foy Bus Terminal", "Université Laval", "Old Quebec", "Les Galeries de la Capitale", "Gare de Sainte-Foy"],
-    "Sherbrooke": ["Université de Sherbrooke", "Carrefour de l'Estrie", "Terminus Sherbrooke", "Bishop's University"],
-    "Gatineau": ["Promenades Gatineau", "Place du Portage", "Museum of History", "Cegep de l'Outaouais"],
+    "Montreal": ["Berri-UQAM", "Radisson", "YUL Airport", "Côte-Vertu", "Namur", "McGill", "Concordia"],
+    "Quebec City": ["Gare du Palais", "Sainte-Foy", "Université Laval", "Old Quebec", "Galeries Capitale"],
+    "Sherbrooke": ["Université de Sherbrooke", "Carrefour de l'Estrie", "Terminus", "Bishop's"],
+    "Gatineau": ["Promenades", "Place du Portage", "Museum", "Cegep"],
     "Trois-Rivieres": ["Gare d'autocars", "UQTR", "Centre Les Rivières"],
-    "Laval": ["Montmorency Metro", "Carrefour Laval", "Centropolis"],
-    "Longueuil": ["Longueuil Metro", "Place Longueuil", "Cégep Édouard-Montpetit"]
+    "Laval": ["Montmorency", "Carrefour Laval", "Centropolis"],
+    "Longueuil": ["Longueuil Metro", "Place Longueuil", "Cégep"]
   },
   "ON": {
-    "Toronto": ["Union Station", "Pearson Airport (YYZ)", "Yorkdale Mall", "Scarborough Town Centre", "CN Tower", "Fairview Mall", "Kipling Station"],
-    "Ottawa": ["Rideau Centre", "Ottawa Train Station", "Bayshore Shopping Centre", "Kanata Centrum", "Parliament Hill", "University of Ottawa"],
-    "Kingston": ["Queens University", "Kingston Bus Terminal", "Division St. Carpool Lot"],
-    "Mississauga": ["Square One", "Port Credit GO", "Heartland Town Centre"],
-    "London": ["Western University", "Masonville Place", "White Oaks Mall"],
-    "Hamilton": ["McMaster University", "Hamilton GO Centre", "Lime Ridge Mall"],
-    "Windsor": ["University of Windsor", "Devonshire Mall"]
+    "Toronto": ["Union Station", "YYZ Airport", "Yorkdale", "Scarborough TC", "CN Tower", "Fairview", "Kipling"],
+    "Ottawa": ["Rideau Centre", "Train Station", "Bayshore", "Kanata", "Parliament", "UOttawa"],
+    "Kingston": ["Queens", "Bus Terminal", "Carpool Lot"],
+    "Mississauga": ["Square One", "Port Credit", "Heartland"],
+    "London": ["Western U", "Masonville", "White Oaks"],
+    "Hamilton": ["McMaster", "GO Centre", "Lime Ridge"],
+    "Windsor": ["UWindsor", "Devonshire"]
   },
   "BC": {
-    "Vancouver": ["Pacific Central Station", "UBC Bus Loop", "Waterfront Station", "YVR Airport", "Commercial-Broadway"],
-    "Victoria": ["Mayfair Shopping Centre", "UVic Bus Exchange", "Swartz Bay Ferry"],
-    "Kelowna": ["UBCO Exchange", "Orchard Park Mall"],
-    "Kamloops": ["TRU Exchange", "Aberdeen Mall"],
-    "Whistler": ["Gateway Loop", "Creekside"]
+    "Vancouver": ["Pacific Central", "UBC", "Waterfront", "YVR Airport", "Commercial-Bwy"],
+    "Victoria": ["Mayfair", "UVic", "Swartz Bay"],
+    "Kelowna": ["UBCO", "Orchard Park"],
+    "Kamloops": ["TRU", "Aberdeen"],
+    "Whistler": ["Gateway", "Creekside"]
   },
   "AB": {
-    "Calgary": ["University of Calgary", "Chinook Centre", "Calgary Tower", "YYC Airport"],
-    "Edmonton": ["West Edmonton Mall", "University of Alberta", "Southgate Centre"],
-    "Banff": ["Banff Train Station", "High School Transit Hub"],
-    "Red Deer": ["Red Deer College", "Bower Place"]
-  },
-  "MB": {
-    "Winnipeg": ["Polo Park", "University of Manitoba", "The Forks", "YWG Airport"],
-    "Brandon": ["Brandon University", "Shoppers Mall"]
-  },
-  "SK": {
-    "Saskatoon": ["University of Saskatchewan", "Midtown Plaza"],
-    "Regina": ["University of Regina", "Cornwall Centre"]
-  },
-  "NS": {
-    "Halifax": ["Dalhousie University", "Halifax Shopping Centre", "Scotia Square"],
-    "Sydney": ["CBU", "Mayflower Mall"]
-  },
-  "NB": {
-    "Fredericton": ["UNB", "Regent Mall"],
-    "Moncton": ["Champlain Place", "Université de Moncton"],
-    "Saint John": ["McAllister Place", "UNB Saint John"]
-  },
-  "NL": {
-    "St. John's": ["Memorial University", "Avalon Mall", "YYT Airport"]
-  },
-  "PE": {
-    "Charlottetown": ["UPEI", "Confederation Centre"]
+    "Calgary": ["UCalgary", "Chinook", "Calgary Tower", "YYC Airport"],
+    "Edmonton": ["West Edm Mall", "UAlberta", "Southgate"],
+    "Banff": ["Train Station", "Transit Hub"],
+    "Red Deer": ["College", "Bower Place"]
   }
 };
 
@@ -205,10 +182,10 @@ const generateMockRides = (): Ride[] => {
 // --- Shared Components ---
 
 const Button = ({ children, onClick, variant = 'primary', className = '', fullWidth = true, disabled = false }: any) => {
-  const baseStyle = "py-4 px-6 rounded-2xl font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:pointer-events-none shadow-lg";
+  const baseStyle = "py-4 px-6 rounded-2xl font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:pointer-events-none shadow-md";
   const variants: any = {
-    primary: "bg-gradient-to-r from-primary to-primaryDark text-white shadow-indigo-500/30",
-    secondary: "bg-white text-slate-800 border border-slate-100 shadow-slate-200/50",
+    primary: "bg-slate-900 text-white hover:bg-slate-800",
+    secondary: "bg-white text-slate-800 border border-slate-200 hover:bg-slate-50",
     danger: "bg-red-50 text-red-600 hover:bg-red-100",
     outline: "border-2 border-slate-200 text-slate-600 hover:bg-slate-50"
   };
@@ -220,10 +197,10 @@ const Button = ({ children, onClick, variant = 'primary', className = '', fullWi
 };
 
 const Header = ({ title, subtitle, rightAction }: any) => (
-  <div className="flex justify-between items-center mb-6 text-slate-900">
+  <div className="flex justify-between items-center mb-6 text-slate-900 px-1">
     <div>
-      <h1 className="text-2xl font-extrabold tracking-tight">{title}</h1>
-      {subtitle && <p className="text-sm font-medium text-slate-500">{subtitle}</p>}
+      <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{title}</h1>
+      {subtitle && <p className="text-sm font-medium text-slate-500 mt-1">{subtitle}</p>}
     </div>
     {rightAction}
   </div>
@@ -256,50 +233,44 @@ const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvi
     };
 
     return (
-        <div className="relative flex gap-4">
-             {/* Left Column: Icon & Line */}
-             <div className="flex flex-col items-center">
-                 <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 z-10 bg-white ${type === 'origin' ? 'border-indigo-600' : 'border-pink-600'}`}>
-                     <div className={`w-3 h-3 rounded-full ${type === 'origin' ? 'bg-indigo-600' : 'bg-pink-600'}`} />
-                 </div>
-                 {type === 'origin' && <div className="w-0.5 flex-1 bg-slate-200 border-l-2 border-dashed border-slate-300 min-h-[48px] my-1"></div>}
+        <div className="flex gap-4">
+             {/* Timeline Visual */}
+             <div className="flex flex-col items-center pt-2">
+                 <div className={`w-3 h-3 rounded-full ${type === 'origin' ? 'bg-indigo-600 ring-4 ring-indigo-50' : 'bg-pink-600 ring-4 ring-pink-50'}`} />
+                 {type === 'origin' && <div className="w-0.5 flex-1 bg-slate-200 min-h-[50px] my-1 rounded-full"></div>}
              </div>
 
-             {/* Right Column: Inputs */}
              <div className="flex-1 pb-4">
-                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">{label}</label>
+                 <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">{label}</label>
                  
-                 <div className="bg-white rounded-2xl border border-slate-200 p-1.5 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all shadow-sm">
-                    <div className="flex items-center divide-x divide-slate-100">
-                        {/* Province Select */}
-                        <div className="relative w-[38%] min-w-[110px] group/prov">
+                 <div className="bg-slate-50 rounded-2xl border border-transparent hover:border-slate-200 hover:bg-white focus-within:bg-white focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all">
+                    <div className="flex items-center">
+                        <div className="relative w-[30%] min-w-[90px] border-r border-slate-200">
                              <select
                                 value={province}
                                 onChange={(e) => { setProvince(e.target.value); setCity(''); setSpot(''); }}
-                                className="w-full h-12 bg-transparent appearance-none outline-none font-bold text-slate-700 text-xs px-3 cursor-pointer"
+                                className="w-full h-14 bg-transparent appearance-none outline-none font-bold text-slate-600 text-xs px-4 cursor-pointer"
                              >
                                 {Object.keys(CITIES_AND_SPOTS).map(p => (
                                     <option key={p} value={p}>{PROVINCE_NAMES[p]}</option>
                                 ))}
                              </select>
-                             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
+                             <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
                         </div>
 
-                        {/* City Input */}
                         <div className="relative flex-1">
                             <input
                                 value={city}
                                 onChange={(e) => handleCityChange(e.target.value)}
-                                placeholder="City Name"
-                                className="w-full h-12 bg-transparent outline-none font-bold text-slate-900 text-base px-4 placeholder:font-medium placeholder:text-slate-300"
+                                placeholder={type === 'origin' ? "Departure City" : "Arrival City"}
+                                className="w-full h-14 bg-transparent outline-none font-bold text-slate-900 text-sm px-4 placeholder:text-slate-300"
                                 onFocus={() => { if(province) handleCityChange(city); }}
                             />
-                            {/* Suggestions */}
                              {showCitySuggestions && citySuggestions.length > 0 && (
-                                <div className="absolute top-full left-0 w-full bg-white shadow-xl rounded-xl mt-4 z-50 max-h-60 overflow-y-auto border border-slate-100 p-2">
+                                <div className="absolute top-full left-0 w-full bg-white shadow-xl rounded-xl mt-2 z-50 max-h-60 overflow-y-auto border border-slate-100 p-2">
                                     {citySuggestions.map(s => (
-                                        <button key={s} onClick={() => handleCitySelect(s)} className="w-full text-left p-3 hover:bg-slate-50 rounded-lg text-sm font-bold text-slate-700 flex items-center gap-2 transition-colors">
-                                            <MapPin size={16} className="text-slate-300"/>
+                                        <button key={s} onClick={() => handleCitySelect(s)} className="w-full text-left p-3 hover:bg-slate-50 rounded-lg text-sm font-bold text-slate-700 flex items-center gap-3 transition-colors">
+                                            <MapPin size={14} className="text-slate-300"/>
                                             {s}
                                         </button>
                                     ))}
@@ -309,27 +280,19 @@ const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvi
                     </div>
                  </div>
 
-                 {/* Spot Selector */}
                  {city && spotsAvailable && spotsAvailable.length > 0 && (
-                    <div className="mt-3 animate-float-in">
-                        <div className="relative group/spot">
-                            <div className={`flex items-center bg-white border-2 rounded-xl px-4 py-3 transition-all cursor-pointer ${spot ? 'border-indigo-500 shadow-md shadow-indigo-500/10' : 'border-slate-200 hover:border-slate-300'}`}>
-                                <div className={`p-2 rounded-full mr-3 ${spot ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
-                                    <NavIcon size={18} />
-                                </div>
-                                <div className="flex-1 relative">
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Meeting Spot</label>
-                                    <select
-                                        value={spot}
-                                        onChange={(e) => handleSpotSelect(e.target.value)}
-                                        className="w-full h-6 bg-transparent appearance-none outline-none font-bold text-slate-900 text-sm cursor-pointer"
-                                    >
-                                        <option value="" disabled>Select a specific spot...</option>
-                                        {spotsAvailable.map((s: string) => <option key={s} value={s}>{s}</option>)}
-                                    </select>
-                                </div>
-                                <ChevronDown size={16} className="text-slate-400" />
-                            </div>
+                    <div className="mt-2 animate-float-in">
+                        <div className="relative flex items-center">
+                            <div className="absolute left-3 text-slate-400"><NavIcon size={14} /></div>
+                            <select
+                                value={spot}
+                                onChange={(e) => handleSpotSelect(e.target.value)}
+                                className="w-full h-10 pl-9 pr-4 bg-white border border-slate-200 rounded-xl appearance-none outline-none font-medium text-slate-600 text-xs cursor-pointer hover:border-indigo-300 transition-colors"
+                            >
+                                <option value="" disabled>Specific meeting spot...</option>
+                                {spotsAvailable.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <ChevronDown size={12} className="absolute right-3 text-slate-400 pointer-events-none" />
                         </div>
                     </div>
                  )}
@@ -341,67 +304,73 @@ const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvi
 const RideCard = ({ ride, onClick, t, lang, isPast = false }: any) => {
   const startTime = ride.departureTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const endTime = ride.arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const duration = Math.round((ride.arrivalTime.getTime() - ride.departureTime.getTime()) / 3600000 * 10) / 10;
+  // const duration = Math.round((ride.arrivalTime.getTime() - ride.departureTime.getTime()) / 3600000 * 10) / 10;
   const rideDate = ride.departureTime.toLocaleDateString(lang === 'fr' ? 'fr-CA' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const isBooked = ride.bookedSeats && ride.bookedSeats > 0;
 
   return (
-    <div onClick={onClick} className={`bg-white rounded-3xl p-5 shadow-card mb-4 active:scale-[0.99] transition-transform cursor-pointer border border-slate-100 relative overflow-hidden ${isPast ? 'opacity-75 grayscale-[0.3]' : ''}`}>
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-2">
-            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isPast ? 'bg-slate-100 text-slate-500' : 'bg-slate-100 text-slate-600'}`}>
-              {isPast ? t.completed : rideDate}
-            </span>
-            {isBooked && !isPast && <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-[10px] font-bold uppercase">Booked</span>}
-        </div>
-        {!isPast && <span className="text-indigo-600 font-bold text-lg">${ride.price}</span>}
+    <div onClick={onClick} className={`bg-white rounded-2xl p-0 shadow-sm hover:shadow-md mb-4 active:scale-[0.99] transition-all cursor-pointer border border-slate-100 overflow-hidden ${isPast ? 'opacity-75 grayscale-[0.3]' : ''}`}>
+      {/* Top Banner for Date/Status */}
+      <div className="bg-slate-50 px-5 py-3 border-b border-slate-100 flex justify-between items-center">
+         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{rideDate}</span>
+         {isBooked && !isPast && <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Booked</span>}
+         {isPast && <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Completed</span>}
       </div>
 
-      <div className="flex gap-4 mb-4">
-        <div className="flex flex-col items-center gap-1 pt-1">
-          <div className="w-3 h-3 rounded-full bg-slate-900"></div>
-          <div className="w-0.5 h-10 bg-slate-200 border-l border-dashed border-slate-300"></div>
-          <div className="w-3 h-3 rounded-full bg-secondary"></div>
-        </div>
-        <div className="flex-1 space-y-3">
-           <div>
-               <div className="text-lg font-bold text-slate-900 leading-none">{startTime}</div>
-               <div className="text-sm text-slate-500 font-bold mt-1 truncate">{ride.origin}</div>
-           </div>
-           <div>
-               <div className="text-lg font-bold text-slate-900 leading-none">{endTime}</div>
-               <div className="text-sm text-slate-500 font-bold mt-1 truncate">{ride.destination}</div>
-           </div>
-        </div>
-        <div className="text-xs text-slate-400 font-medium whitespace-nowrap self-end">{duration}h</div>
-      </div>
-
-      <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <img src={ride.driver.avatar || 'https://i.pravatar.cc/150'} className="w-8 h-8 rounded-full bg-slate-200 object-cover" />
-          <div className="text-xs">
-            <div className="font-bold text-slate-900">{ride.driver.firstName}</div>
-            <div className="flex items-center gap-1 text-slate-400"><Star size={10} className="fill-yellow-400 text-yellow-400" /> {ride.driver.rating}</div>
+      <div className="p-5 flex items-stretch">
+          {/* Times and Line */}
+          <div className="flex flex-col justify-between items-center mr-4 py-1">
+              <div className="text-sm font-bold text-slate-900">{startTime}</div>
+              <div className="w-0.5 flex-1 bg-slate-100 my-1 relative">
+                 {/* Decor dots */}
+                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+              </div>
+              <div className="text-sm font-bold text-slate-400">{endTime}</div>
           </div>
-        </div>
-        <div className={`text-xs font-bold px-3 py-1.5 rounded-xl ${ride.seatsAvailable === 0 ? 'bg-red-50 text-red-500' : 'bg-slate-50 text-slate-600'}`}>
-           {ride.seatsAvailable} {t.seatsLeft}
-        </div>
+
+          {/* Locations */}
+          <div className="flex-1 flex flex-col justify-between py-1 space-y-4">
+              <div className="text-base font-bold text-slate-800 leading-tight">{ride.origin}</div>
+              <div className="text-base font-bold text-slate-800 leading-tight">{ride.destination}</div>
+          </div>
+
+          {/* Price */}
+          <div className="flex flex-col justify-between items-end pl-4 border-l border-slate-50">
+              <div className="text-xl font-extrabold text-indigo-600">${ride.price}</div>
+              <div className="flex flex-col items-end">
+                   <div className="w-8 h-8 rounded-full bg-slate-100 mb-1 overflow-hidden">
+                       <img src={ride.driver.avatar || 'https://i.pravatar.cc/150'} className="w-full h-full object-cover" />
+                   </div>
+                   <div className="flex items-center text-[10px] font-bold text-slate-400 gap-0.5">
+                       {ride.driver.rating} <Star size={8} className="fill-yellow-400 text-yellow-400"/>
+                   </div>
+              </div>
+          </div>
+      </div>
+      
+      {/* Footer Info */}
+      <div className="px-5 py-3 border-t border-slate-50 flex items-center justify-between bg-white">
+          <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
+             <span className="flex items-center gap-1"><Users size={12}/> {ride.seatsAvailable} seats left</span>
+             {ride.features.instantBook && <span className="flex items-center gap-1 text-green-600"><Zap size={12}/> Instant</span>}
+          </div>
+          <div className="text-xs font-bold text-slate-900 flex items-center gap-1">
+              {ride.driver.firstName}
+              {ride.driver.isVerified && <CheckCircle2 size={12} className="text-blue-500" />}
+          </div>
       </div>
     </div>
   );
 };
 
 const LuggageCounter = ({ label, value, onChange }: { label: string, value: number, onChange: (v: number) => void }) => (
-    <div className="flex items-center justify-between bg-white/50 border border-slate-100 p-3 rounded-2xl">
-        <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500"><Briefcase size={16}/></div>
-            <span className="text-sm font-bold text-slate-700">{label}</span>
-        </div>
+    <div className="flex items-center justify-between p-3">
+        <span className="text-sm font-bold text-slate-700">{label}</span>
         <div className="flex items-center gap-3">
-            <button onClick={() => onChange(Math.max(0, value - 1))} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500">-</button>
+            <button onClick={() => onChange(Math.max(0, value - 1))} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center font-bold text-slate-500 hover:bg-slate-50">-</button>
             <span className="font-bold text-sm min-w-[12px] text-center">{value}</span>
-            <button onClick={() => onChange(value + 1)} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500">+</button>
+            <button onClick={() => onChange(value + 1)} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center font-bold text-slate-500 hover:bg-slate-50">+</button>
         </div>
     </div>
 );
@@ -457,31 +426,31 @@ const AuthView = ({ onLogin, lang, setLang }: any) => {
           <div className="flex justify-center mb-8"><Logo size={120} /></div>
           <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-[2.5rem]">
              <div className="flex bg-black/30 p-1 rounded-xl mb-6">
-                <button onClick={() => setIsLogin(true)} className={`flex-1 py-3 rounded-lg font-bold text-sm ${isLogin ? 'bg-white text-slate-900' : 'text-white/60'}`}>{t.logIn}</button>
-                <button onClick={() => setIsLogin(false)} className={`flex-1 py-3 rounded-lg font-bold text-sm ${!isLogin ? 'bg-white text-slate-900' : 'text-white/60'}`}>{t.signUp}</button>
+                <button onClick={() => setIsLogin(true)} className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${isLogin ? 'bg-white text-slate-900 shadow-lg' : 'text-white/60 hover:text-white'}`}>{t.logIn}</button>
+                <button onClick={() => setIsLogin(false)} className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${!isLogin ? 'bg-white text-slate-900 shadow-lg' : 'text-white/60 hover:text-white'}`}>{t.signUp}</button>
              </div>
              
              <form onSubmit={handleAuth} className="space-y-4">
                 {!isLogin && (
                    <>
                        <div className="grid grid-cols-2 gap-3 mb-2">
-                          <button type="button" onClick={() => setRole('passenger')} className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 ${role === 'passenger' ? 'border-primary bg-primary/20 text-white' : 'border-white/10 text-white/40'}`}>
+                          <button type="button" onClick={() => setRole('passenger')} className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${role === 'passenger' ? 'border-indigo-500 bg-indigo-500/20 text-white' : 'border-white/10 text-white/40 hover:bg-white/5'}`}>
                              <User size={20} /><span className="text-xs font-bold">{t.passenger}</span>
                           </button>
-                          <button type="button" onClick={() => setRole('driver')} className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 ${role === 'driver' ? 'border-primary bg-primary/20 text-white' : 'border-white/10 text-white/40'}`}>
+                          <button type="button" onClick={() => setRole('driver')} className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${role === 'driver' ? 'border-indigo-500 bg-indigo-500/20 text-white' : 'border-white/10 text-white/40 hover:bg-white/5'}`}>
                              <Car size={20} /><span className="text-xs font-bold">{t.driver}</span>
                           </button>
                        </div>
                        <div className="grid grid-cols-2 gap-3">
-                           <input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder={t.firstName} className="bg-black/20 border border-white/10 text-white p-3 rounded-xl w-full" required />
-                           <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder={t.lastName} className="bg-black/20 border border-white/10 text-white p-3 rounded-xl w-full" required />
+                           <input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder={t.firstName} className="bg-black/20 border border-white/10 text-white p-3 rounded-xl w-full focus:border-indigo-500 outline-none transition-colors placeholder:text-white/30" required />
+                           <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder={t.lastName} className="bg-black/20 border border-white/10 text-white p-3 rounded-xl w-full focus:border-indigo-500 outline-none transition-colors placeholder:text-white/30" required />
                        </div>
-                       <input value={phone} onChange={e => setPhone(e.target.value)} placeholder={t.phone} className="bg-black/20 border border-white/10 text-white p-3 rounded-xl w-full" required />
+                       <input value={phone} onChange={e => setPhone(e.target.value)} placeholder={t.phone} className="bg-black/20 border border-white/10 text-white p-3 rounded-xl w-full focus:border-indigo-500 outline-none transition-colors placeholder:text-white/30" required />
                    </>
                 )}
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t.email} className="bg-black/20 border border-white/10 text-white p-4 rounded-xl w-full" required />
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t.password} className="bg-black/20 border border-white/10 text-white p-4 rounded-xl w-full" required />
-                <Button type="submit" className="w-full mt-4">{isLogin ? t.logIn : t.createAccount}</Button>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t.email} className="bg-black/20 border border-white/10 text-white p-4 rounded-xl w-full focus:border-indigo-500 outline-none transition-colors placeholder:text-white/30" required />
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t.password} className="bg-black/20 border border-white/10 text-white p-4 rounded-xl w-full focus:border-indigo-500 outline-none transition-colors placeholder:text-white/30" required />
+                <Button type="submit" className="w-full mt-4 !bg-indigo-600 hover:!bg-indigo-500 !border-none !text-white !py-4 !shadow-indigo-500/20">{isLogin ? t.logIn : t.createAccount}</Button>
              </form>
           </div>
        </div>
@@ -527,25 +496,37 @@ const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
             <Header title={t.driverSetup} subtitle={`Step ${step}/2`} />
             {step === 1 ? (
                 <div className="space-y-4">
-                    <h3 className="font-bold">Vehicle Info</h3>
-                    <input placeholder="Make" value={vehicle.make} onChange={e => setVehicle({...vehicle, make: e.target.value})} className="w-full p-4 bg-white rounded-xl" />
-                    <input placeholder="Model" value={vehicle.model} onChange={e => setVehicle({...vehicle, model: e.target.value})} className="w-full p-4 bg-white rounded-xl" />
-                    <div className="flex gap-4">
-                         <input placeholder="Year" value={vehicle.year} onChange={e => setVehicle({...vehicle, year: e.target.value})} className="w-full p-4 bg-white rounded-xl" />
-                         <input placeholder="Plate" value={vehicle.plate} onChange={e => setVehicle({...vehicle, plate: e.target.value})} className="w-full p-4 bg-white rounded-xl" />
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                        <h3 className="font-bold mb-4 flex items-center gap-2"><Car size={20} className="text-indigo-600"/> Vehicle Info</h3>
+                        <div className="space-y-3">
+                            <input placeholder="Make (e.g. Toyota)" value={vehicle.make} onChange={e => setVehicle({...vehicle, make: e.target.value})} className="w-full p-4 bg-slate-50 border border-transparent focus:bg-white focus:border-indigo-500 rounded-xl outline-none transition-all font-bold" />
+                            <input placeholder="Model (e.g. Camry)" value={vehicle.model} onChange={e => setVehicle({...vehicle, model: e.target.value})} className="w-full p-4 bg-slate-50 border border-transparent focus:bg-white focus:border-indigo-500 rounded-xl outline-none transition-all font-bold" />
+                            <div className="flex gap-4">
+                                <input placeholder="Year" value={vehicle.year} onChange={e => setVehicle({...vehicle, year: e.target.value})} className="w-full p-4 bg-slate-50 border border-transparent focus:bg-white focus:border-indigo-500 rounded-xl outline-none transition-all font-bold" />
+                                <input placeholder="Plate Number" value={vehicle.plate} onChange={e => setVehicle({...vehicle, plate: e.target.value})} className="w-full p-4 bg-slate-50 border border-transparent focus:bg-white focus:border-indigo-500 rounded-xl outline-none transition-all font-bold" />
+                            </div>
+                        </div>
                     </div>
-                    <Button onClick={() => setStep(2)} disabled={!vehicle.make || !vehicle.model} className="mt-4">Next</Button>
+                    <Button onClick={() => setStep(2)} disabled={!vehicle.make || !vehicle.model} className="mt-4">Next Step <ArrowRight size={18}/></Button>
                 </div>
             ) : (
                 <div className="space-y-6">
-                    <h3 className="font-bold">Documents</h3>
-                    {['license', 'insurance', 'photo'].map(key => (
-                        <div key={key} className="bg-white p-4 rounded-xl border border-dashed flex justify-between items-center relative">
-                            <span className="capitalize font-bold text-slate-700">{key === 'photo' ? 'Selfie' : key}</span>
-                            {docs[key] ? <CheckCircle2 className="text-green-500"/> : <Upload className="text-slate-300"/>}
-                            <input type="file" onChange={e => handleFile(e, key)} className="absolute inset-0 opacity-0" />
+                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                        <h3 className="font-bold mb-4 flex items-center gap-2"><FileText size={20} className="text-indigo-600"/> Required Documents</h3>
+                        <div className="space-y-3">
+                            {['license', 'insurance', 'photo'].map(key => (
+                                <div key={key} className={`p-4 rounded-xl border-2 border-dashed flex justify-between items-center relative transition-all ${docs[key] ? 'border-green-500 bg-green-50' : 'border-slate-200 hover:border-indigo-300'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${docs[key] ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                                            {docs[key] ? <CheckCircle2 size={20}/> : <Camera size={20}/>}
+                                        </div>
+                                        <span className="capitalize font-bold text-slate-700">{key === 'photo' ? 'Profile Selfie' : key}</span>
+                                    </div>
+                                    <input type="file" onChange={e => handleFile(e, key)} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                </div>
+                            ))}
                         </div>
-                    ))}
+                    </div>
                     <Button onClick={finish} disabled={!docs.license || !docs.insurance || !docs.photo} className="mt-4">{t.submit}</Button>
                 </div>
             )}
@@ -565,58 +546,68 @@ const HomeView = ({ user, allRides, bookedRides, setDetailRide, setView, lang }:
 
     return (
         <div className="h-full pb-32 overflow-y-auto bg-slate-50">
-             <div className="bg-slate-900 p-6 pb-20 rounded-b-[2.5rem] mb-6">
-                 <div className="flex justify-between items-center text-white mb-6">
+             <div className="bg-white p-6 pb-4 sticky top-0 z-10 border-b border-slate-100/50 backdrop-blur-md bg-white/90">
+                 <div className="flex justify-between items-center mb-4">
                      <div>
-                         <h1 className="text-2xl font-bold">{t.goodMorning}</h1>
-                         <p className="opacity-60">{user.firstName}</p>
+                         <h1 className="text-2xl font-extrabold text-slate-900">{t.goodMorning},</h1>
+                         <p className="text-slate-500 font-medium">{user.firstName}</p>
                      </div>
-                     <img onClick={() => setView('profile')} src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}`} className="w-10 h-10 rounded-full border border-white/20" />
+                     <img onClick={() => setView('profile')} src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}`} className="w-10 h-10 rounded-full border-2 border-white shadow-sm cursor-pointer hover:opacity-80 transition-opacity" />
                  </div>
                  
                  {user.role === 'passenger' && (
-                     <div className="bg-white/10 backdrop-blur p-4 rounded-2xl border border-white/10">
-                         <div className="flex items-center gap-3 bg-black/20 p-3 rounded-xl mb-2">
-                             <Search className="text-white/50" size={18}/>
-                             <input placeholder={t.whereTo} className="bg-transparent text-white font-bold w-full outline-none placeholder-white/40" />
+                     <div className="relative group" onClick={() => setView('search')}>
+                         <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                             <Search className="text-indigo-500" size={20}/>
                          </div>
-                         <Button onClick={() => setView('search')} className="py-3 text-sm">{t.searchRides}</Button>
+                         <div className="w-full bg-slate-100 text-slate-500 font-bold py-4 pl-12 rounded-2xl cursor-pointer group-hover:bg-slate-200 transition-colors shadow-inner">
+                             {t.whereTo}
+                         </div>
                      </div>
                  )}
 
                  {user.role === 'driver' && (
-                     <div className="bg-white/10 backdrop-blur p-4 rounded-2xl border border-white/10 text-center">
-                         <div className="text-3xl font-bold text-white mb-1">${myHistory.reduce((acc:number, r:Ride) => acc + (r.price * (r.totalSeats - r.seatsAvailable)), 0)}</div>
-                         <div className="text-xs text-white/60 font-bold uppercase tracking-widest mb-4">Total Earnings</div>
-                         
-                         {user.driverStatus === 'pending' ? (
-                             <div className="bg-yellow-500/20 text-yellow-200 p-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
-                                 <Clock size={14}/> Verification in Progress
-                             </div>
-                         ) : (
-                             <div className="bg-green-500/20 text-green-300 p-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
-                                 <CheckCircle2 size={14}/> Account Active
-                             </div>
-                         )}
+                     <div className="flex gap-3">
+                         <div className="flex-1 bg-slate-900 text-white p-4 rounded-2xl shadow-lg shadow-slate-900/20">
+                             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Earnings</div>
+                             <div className="text-2xl font-extrabold">${myHistory.reduce((acc:number, r:Ride) => acc + (r.price * (r.totalSeats - r.seatsAvailable)), 0)}</div>
+                         </div>
+                          <div className={`flex-1 p-4 rounded-2xl border-2 flex flex-col justify-center items-center font-bold text-xs gap-1 ${user.driverStatus === 'pending' ? 'border-yellow-100 bg-yellow-50 text-yellow-700' : 'border-green-100 bg-green-50 text-green-700'}`}>
+                             {user.driverStatus === 'pending' ? <Clock size={20}/> : <CheckCircle2 size={20}/>}
+                             {user.driverStatus === 'pending' ? 'Pending' : 'Active'}
+                         </div>
                      </div>
                  )}
              </div>
 
-             <div className="px-6">
+             <div className="px-4 py-6">
                  {user.role === 'passenger' && bookedRides.length > 0 && (
-                     <div className="mb-6">
-                         <h2 className="font-bold text-slate-900 mb-4">{t.yourTickets}</h2>
+                     <div className="mb-8">
+                         <div className="flex items-center justify-between mb-4 px-1">
+                            <h2 className="font-extrabold text-lg text-slate-900">{t.yourTickets}</h2>
+                         </div>
                          {bookedRides.map((r: Ride) => (
                              <RideCard key={r.id} ride={r} t={t} lang={lang} onClick={() => { setDetailRide(r); setView('ride-detail'); }} />
                          ))}
                      </div>
                  )}
 
-                 <h2 className="font-bold text-slate-900 mb-4">{user.role === 'driver' ? t.activeTrips : t.featuredRides}</h2>
+                 <div className="flex items-center justify-between mb-4 px-1">
+                    <h2 className="font-extrabold text-lg text-slate-900">{user.role === 'driver' ? t.activeTrips : t.featuredRides}</h2>
+                 </div>
+                 
                  {user.role === 'driver' ? (
-                     myHistory.length > 0 ? myHistory.map((r: Ride) => <RideCard key={r.id} ride={r} t={t} lang={lang} onClick={() => { setDetailRide(r); setView('ride-detail'); }} />) : <div className="text-slate-400 text-center text-sm py-10">No trips posted yet.</div>
+                     myHistory.length > 0 ? myHistory.map((r: Ride) => <RideCard key={r.id} ride={r} t={t} lang={lang} onClick={() => { setDetailRide(r); setView('ride-detail'); }} />) : (
+                         <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200">
+                             <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-300"><Car size={24}/></div>
+                             <p className="text-slate-400 font-bold text-sm">No trips posted yet.</p>
+                             <button onClick={() => setView('post')} className="mt-4 text-indigo-600 font-bold text-sm hover:underline">Post your first trip</button>
+                         </div>
+                     )
                  ) : (
-                     upcomingRides.map((r: Ride) => <RideCard key={r.id} ride={r} t={t} lang={lang} onClick={() => { setDetailRide(r); setView('ride-detail'); }} />)
+                     <div className="space-y-4">
+                        {upcomingRides.map((r: Ride) => <RideCard key={r.id} ride={r} t={t} lang={lang} onClick={() => { setDetailRide(r); setView('ride-detail'); }} />)}
+                     </div>
                  )}
              </div>
         </div>
@@ -627,27 +618,24 @@ const PostRideView = ({ user, onPublish, setView, lang, refreshUser }: any) => {
     const t = translations[lang];
     const [form, setForm] = useState({ price: 45, seats: 3, date: toLocalISOString(new Date()), time: '09:00', luggage: { small: 1, medium: 1, large: 0 } });
     
-    // Origin state
     const [originProv, setOriginProv] = useState('QC');
     const [originCity, setOriginCity] = useState('');
     const [originSpot, setOriginSpot] = useState('');
 
-    // Dest state
     const [destProv, setDestProv] = useState('QC');
     const [destCity, setDestCity] = useState('');
     const [destSpot, setDestSpot] = useState('');
 
-    // STRICT APPROVAL CHECK
     if (user.driverStatus !== 'approved') {
         return (
             <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
-                <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mb-6">
-                    <Shield size={40} className="text-yellow-600" />
+                <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                    <Shield size={40} className="text-red-500" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">{t.verificationRequired}</h2>
-                <p className="text-slate-500 mb-8">You must be approved by an administrator before posting trips.</p>
+                <h2 className="text-2xl font-extrabold text-slate-900 mb-2">{t.verificationRequired}</h2>
+                <p className="text-slate-500 mb-8 max-w-[260px] mx-auto font-medium">Drivers must be approved by our team before posting trips.</p>
                 <div className="space-y-3 w-full">
-                    <Button onClick={refreshUser} className="w-full flex items-center justify-center gap-2"><RefreshCw size={18}/> Check Approval Status</Button>
+                    <Button onClick={refreshUser} className="w-full flex items-center justify-center gap-2"><RefreshCw size={18}/> Check Status</Button>
                     <Button onClick={() => setView('home')} variant="secondary">{t.backToHome}</Button>
                 </div>
             </div>
@@ -661,7 +649,7 @@ const PostRideView = ({ user, onPublish, setView, lang, refreshUser }: any) => {
         }
 
         const departure = new Date(`${form.date}T${form.time}`);
-        const arrival = new Date(departure.getTime() + 10800000); // +3h approx
+        const arrival = new Date(departure.getTime() + 10800000); 
         
         const originStr = originSpot ? `${originCity} (${originSpot}), ${originProv}` : `${originCity}, ${originProv}`;
         const destStr = destSpot ? `${destCity} (${destSpot}), ${destProv}` : `${destCity}, ${destProv}`;
@@ -686,61 +674,62 @@ const PostRideView = ({ user, onPublish, setView, lang, refreshUser }: any) => {
     return (
         <div className="h-full bg-slate-50 flex flex-col">
             <div className="px-6 pt-12 pb-4">
-                 <Header title={t.postRide} subtitle="Build your journey" />
+                 <Header title={t.postRide} subtitle="Let's fill those empty seats" />
             </div>
             
-            <div className="flex-1 overflow-y-auto px-6 pb-32 no-scrollbar">
-                {/* Trip Builder Card */}
-                <div className="bg-white p-6 rounded-[2.5rem] shadow-card border border-slate-100 space-y-8 relative overflow-hidden">
-                    {/* Decorative Background Blur */}
-                    <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
-
-                    {/* Origin Input */}
+            <div className="flex-1 overflow-y-auto px-4 pb-32 no-scrollbar">
+                <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 space-y-6 relative overflow-hidden mb-4">
                     <LocationInput 
                         type="origin"
-                        label="Origin" 
+                        label="Pick-up" 
                         province={originProv} setProvince={setOriginProv}
                         city={originCity} setCity={setOriginCity}
                         spot={originSpot} setSpot={setOriginSpot}
                     />
 
-                    {/* Destination Input */}
+                    <div className="w-full h-px bg-slate-100"></div>
+
                     <LocationInput 
                         type="destination"
-                        label="Destination" 
+                        label="Drop-off" 
                         province={destProv} setProvince={setDestProv}
                         city={destCity} setCity={setDestCity}
                         spot={destSpot} setSpot={setDestSpot}
                     />
                 </div>
 
-                {/* Details Grid */}
-                <div className="grid grid-cols-2 gap-4 mt-6">
-                     <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-                         <div className="text-slate-400 text-xs font-bold uppercase mb-2 flex items-center gap-1"><Calendar size={12}/> Date</div>
-                         <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full bg-transparent font-bold text-sm outline-none text-slate-900" />
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-200 transition-colors">
+                         <div className="text-slate-400 text-[10px] font-bold uppercase mb-2 flex items-center gap-1"><Calendar size={12}/> Date</div>
+                         <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full bg-transparent font-bold text-sm outline-none text-slate-900 cursor-pointer" />
                      </div>
-                     <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-                         <div className="text-slate-400 text-xs font-bold uppercase mb-2 flex items-center gap-1"><Clock size={12}/> Time</div>
-                         <input type="time" value={form.time} onChange={e => setForm({...form, time: e.target.value})} className="w-full bg-transparent font-bold text-sm outline-none text-slate-900" />
+                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-200 transition-colors">
+                         <div className="text-slate-400 text-[10px] font-bold uppercase mb-2 flex items-center gap-1"><Clock size={12}/> Time</div>
+                         <input type="time" value={form.time} onChange={e => setForm({...form, time: e.target.value})} className="w-full bg-transparent font-bold text-sm outline-none text-slate-900 cursor-pointer" />
                      </div>
-                     <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-                         <div className="text-slate-400 text-xs font-bold uppercase mb-2 flex items-center gap-1"><DollarSign size={12}/> Price</div>
-                         <input type="number" value={form.price} onChange={e => setForm({...form, price: Number(e.target.value)})} className="w-full bg-transparent font-bold text-xl outline-none text-indigo-600" />
+                </div>
+                
+                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 mb-4 flex items-center justify-between">
+                     <div>
+                         <div className="text-slate-400 text-[10px] font-bold uppercase mb-1 flex items-center gap-1"><DollarSign size={12}/> Price per seat</div>
+                         <input type="number" value={form.price} onChange={e => setForm({...form, price: Number(e.target.value)})} className="bg-transparent font-extrabold text-2xl outline-none text-indigo-600 w-24" />
                      </div>
-                     <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-                         <div className="text-slate-400 text-xs font-bold uppercase mb-2 flex items-center gap-1"><Users size={12}/> Seats</div>
-                         <div className="flex items-center gap-3">
-                             <button onClick={() => setForm(f => ({...f, seats: Math.max(1, f.seats - 1)}))} className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500">-</button>
-                             <span className="font-bold text-xl text-slate-900">{form.seats}</span>
-                             <button onClick={() => setForm(f => ({...f, seats: Math.min(6, f.seats + 1)}))} className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500">+</button>
+                     <div className="h-10 w-px bg-slate-100 mx-4"></div>
+                     <div className="flex-1">
+                         <div className="text-slate-400 text-[10px] font-bold uppercase mb-1 flex items-center gap-1"><Users size={12}/> Seats</div>
+                         <div className="flex items-center justify-between bg-slate-50 rounded-xl p-1">
+                             <button onClick={() => setForm(f => ({...f, seats: Math.max(1, f.seats - 1)}))} className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center font-bold text-slate-500 hover:text-indigo-600 transition-colors">-</button>
+                             <span className="font-bold text-lg text-slate-900">{form.seats}</span>
+                             <button onClick={() => setForm(f => ({...f, seats: Math.min(6, f.seats + 1)}))} className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center font-bold text-slate-500 hover:text-indigo-600 transition-colors">+</button>
                          </div>
                      </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-[2rem] shadow-card border border-slate-100 mt-6">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><Briefcase size={18} className="text-indigo-500"/> {t.luggageCapacity}</h3>
-                    <div className="space-y-3">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div className="p-4 border-b border-slate-50 bg-slate-50/50">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2"><Briefcase size={14}/> Luggage</h3>
+                    </div>
+                    <div className="divide-y divide-slate-50">
                         <LuggageCounter label={t.small} value={form.luggage.small} onChange={(v) => setForm({...form, luggage: {...form.luggage, small: v}})} />
                         <LuggageCounter label={t.medium} value={form.luggage.medium} onChange={(v) => setForm({...form, luggage: {...form.luggage, medium: v}})} />
                         <LuggageCounter label={t.large} value={form.luggage.large} onChange={(v) => setForm({...form, luggage: {...form.luggage, large: v}})} />
@@ -748,9 +737,9 @@ const PostRideView = ({ user, onPublish, setView, lang, refreshUser }: any) => {
                 </div>
 
                 <div className="mt-8 mb-8">
-                     <Button onClick={handleSubmit} className="shadow-xl shadow-indigo-200">
+                     <Button onClick={handleSubmit} className="shadow-xl shadow-indigo-200 !py-4 !text-base">
                         {t.publishRide}
-                        <ArrowRight size={18} />
+                        <ArrowRight size={20} />
                      </Button>
                 </div>
             </div>
@@ -767,14 +756,25 @@ const SearchView = ({ allRides, setDetailRide, setView, lang }: any) => {
     );
     return (
         <div className="h-full bg-slate-50 p-6 pt-12 pb-32 overflow-y-auto no-scrollbar">
-            <h1 className="text-2xl font-bold mb-4">{t.searchRides}</h1>
-            <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-2 mb-6">
-                <Search className="text-slate-400" />
-                <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Search city..." className="w-full outline-none font-bold text-slate-700" />
+            <h1 className="text-2xl font-extrabold mb-6 text-slate-900">{t.searchRides}</h1>
+            <div className="bg-white p-2 rounded-2xl border border-slate-200 flex items-center gap-3 mb-8 shadow-sm focus-within:shadow-md focus-within:border-indigo-500 transition-all">
+                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                    <Search size={20} />
+                </div>
+                <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Where do you want to go?" className="flex-1 outline-none font-bold text-slate-900 text-lg placeholder:text-slate-300 h-12" />
             </div>
-            {filtered.map((r: Ride) => (
-                <RideCard key={r.id} ride={r} t={t} lang={lang} onClick={() => { setDetailRide(r); setView('ride-detail'); }} />
-            ))}
+            
+            <div className="space-y-4">
+                {filtered.map((r: Ride) => (
+                    <RideCard key={r.id} ride={r} t={t} lang={lang} onClick={() => { setDetailRide(r); setView('ride-detail'); }} />
+                ))}
+                {filtered.length === 0 && (
+                    <div className="text-center py-20 opacity-50">
+                        <Map size={48} className="mx-auto mb-4 text-slate-300"/>
+                        <p className="font-bold text-slate-400">No rides found matching "{search}"</p>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
@@ -789,54 +789,82 @@ const RideDetailView = ({ ride, user, onBook, onDelete, setView, lang }: any) =>
 
     return (
         <div className="h-full bg-slate-50 flex flex-col overflow-y-auto pb-32 no-scrollbar">
-             <div className="relative h-64 shrink-0">
+             <div className="relative h-72 shrink-0">
                  <img src={getStaticMapUrl(ride.destination)} className="w-full h-full object-cover" />
-                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
-                 <button onClick={() => setView('home')} className="absolute top-6 left-6 bg-white/20 backdrop-blur p-2 rounded-full text-white"><ChevronLeft/></button>
-                 <div className="absolute bottom-6 left-6 text-white">
-                     <h1 className="text-3xl font-bold">{ride.destination.split(',')[0]}</h1>
-                     <p className="opacity-80 flex items-center gap-2"><Calendar size={14}/> {getDisplayDate(toLocalISOString(ride.departureTime), t, lang)}</p>
+                 <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-slate-900/90"></div>
+                 <button onClick={() => setView('home')} className="absolute top-6 left-6 bg-white/20 backdrop-blur-md p-3 rounded-full text-white hover:bg-white/30 transition-colors"><ChevronLeft size={24}/></button>
+                 <div className="absolute bottom-0 left-0 w-full p-6 text-white">
+                     <h1 className="text-4xl font-extrabold mb-2 leading-tight">{ride.destination.split(',')[0]}</h1>
+                     <div className="flex items-center gap-4 text-sm font-bold opacity-90">
+                         <span className="bg-white/20 backdrop-blur px-3 py-1 rounded-full flex items-center gap-2"><Calendar size={14}/> {getDisplayDate(toLocalISOString(ride.departureTime), t, lang)}</span>
+                         <span className="flex items-center gap-1"><Users size={14}/> {ride.seatsAvailable} seats</span>
+                     </div>
                  </div>
              </div>
-             <div className="p-6 space-y-6">
+             
+             <div className="p-6 space-y-6 -mt-6 relative z-10 rounded-t-3xl bg-slate-50">
                  {safety && (
-                     <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl text-xs text-indigo-800 flex gap-3">
-                         <ShieldAlert className="shrink-0 text-indigo-600" size={16} />
-                         {safety}
+                     <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl text-xs font-medium text-indigo-900 flex gap-3 items-start">
+                         <ShieldAlert className="shrink-0 text-indigo-600 mt-0.5" size={16} />
+                         <span className="leading-relaxed">{safety}</span>
                      </div>
                  )}
-                 <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-                     <img src={ride.driver.avatar} className="w-12 h-12 rounded-full" />
+                 
+                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4">
+                     <div className="relative">
+                         <img src={ride.driver.avatar} className="w-14 h-14 rounded-full border-2 border-slate-100" />
+                         <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1 shadow-sm">
+                             <div className="bg-green-500 w-3 h-3 rounded-full border-2 border-white"></div>
+                         </div>
+                     </div>
                      <div className="flex-1">
-                         <div className="font-bold text-slate-900">{ride.driver.firstName}</div>
-                         <div className="text-xs text-slate-500 flex items-center gap-1"><Star size={10} className="text-yellow-400 fill-yellow-400"/> {ride.driver.rating}</div>
+                         <div className="font-bold text-lg text-slate-900">{ride.driver.firstName}</div>
+                         <div className="text-xs text-slate-500 font-bold flex items-center gap-1 mt-0.5"><Star size={12} className="text-yellow-400 fill-yellow-400"/> {ride.driver.rating} • {ride.driver.totalRides} rides</div>
                      </div>
-                     <div className="text-xl font-bold text-indigo-600">${ride.price}</div>
+                     <div className="text-right">
+                         <div className="text-2xl font-extrabold text-indigo-600">${ride.price}</div>
+                         <div className="text-[10px] font-bold text-slate-400 uppercase">per seat</div>
+                     </div>
                  </div>
-                 {/* Trip Line */}
-                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex gap-4">
+
+                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex gap-5">
                      <div className="flex flex-col items-center pt-2">
-                         <div className="w-3 h-3 rounded-full bg-indigo-600"></div>
-                         <div className="w-0.5 flex-1 bg-slate-200 border-l border-dashed border-slate-300 min-h-[40px]"></div>
-                         <div className="w-3 h-3 rounded-full bg-slate-400"></div>
+                         <div className="w-3 h-3 rounded-full bg-indigo-600 ring-4 ring-indigo-50"></div>
+                         <div className="w-0.5 flex-1 bg-slate-100 my-1"></div>
+                         <div className="w-3 h-3 rounded-full bg-pink-600 ring-4 ring-pink-50"></div>
                      </div>
-                     <div className="space-y-8 flex-1">
+                     <div className="space-y-8 flex-1 py-1">
                          <div>
-                             <div className="text-xs font-bold text-slate-400 uppercase">{t.origin}</div>
-                             <div className="font-bold text-slate-900">{ride.origin}</div>
+                             <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{t.origin}</div>
+                             <div className="font-bold text-lg text-slate-900 leading-tight">{ride.origin}</div>
                          </div>
                          <div>
-                             <div className="text-xs font-bold text-slate-400 uppercase">{t.destination}</div>
-                             <div className="font-bold text-slate-900">{ride.destination}</div>
+                             <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{t.destination}</div>
+                             <div className="font-bold text-lg text-slate-900 leading-tight">{ride.destination}</div>
                          </div>
+                     </div>
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-3">
+                     <div className="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col items-center justify-center text-center gap-2">
+                         <Briefcase className="text-slate-300" size={24}/>
+                         <span className="text-xs font-bold text-slate-600">Max Luggage</span>
+                         <span className="text-xs font-medium text-slate-400">Medium Size</span>
+                     </div>
+                     <div className="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col items-center justify-center text-center gap-2">
+                         <Zap className="text-green-500" size={24}/>
+                         <span className="text-xs font-bold text-slate-600">Instant Book</span>
+                         <span className="text-xs font-medium text-slate-400">Enabled</span>
                      </div>
                  </div>
                  
-                 {user.id === ride.driver.id ? (
-                      <Button variant="danger" onClick={() => onDelete(ride.id)}>{t.cancelTrip}</Button>
-                 ) : (
-                      <Button onClick={() => onBook(ride)}>{t.bookSeat}</Button>
-                 )}
+                 <div className="pt-4">
+                     {user.id === ride.driver.id ? (
+                          <Button variant="danger" className="!py-4" onClick={() => onDelete(ride.id)}>{t.cancelTrip}</Button>
+                     ) : (
+                          <Button className="!py-4 shadow-xl shadow-indigo-200" onClick={() => onBook(ride)}>{t.bookSeat}</Button>
+                     )}
+                 </div>
              </div>
         </div>
     );
@@ -846,19 +874,27 @@ const WalletView = ({lang}: any) => {
     const t = translations[lang];
     return (
         <div className="p-6 pt-12 pb-32 h-full bg-slate-50 overflow-y-auto no-scrollbar">
-            <h1 className="text-2xl font-bold mb-6">{t.wallet}</h1>
-            <div className="bg-black text-white p-6 rounded-3xl mb-6 shadow-xl">
-                <div className="text-white/60 text-sm font-bold uppercase">{t.totalBalance}</div>
-                <div className="text-4xl font-bold mt-2">$128.50</div>
+            <h1 className="text-2xl font-extrabold mb-6 text-slate-900">{t.wallet}</h1>
+            <div className="bg-slate-900 text-white p-8 rounded-[2rem] mb-8 shadow-2xl shadow-slate-900/20 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500 rounded-full blur-[60px] opacity-20"></div>
+                <div className="relative z-10">
+                    <div className="text-white/60 text-sm font-bold uppercase tracking-wider mb-2">{t.totalBalance}</div>
+                    <div className="text-5xl font-extrabold tracking-tight">$128.50</div>
+                </div>
             </div>
-            <h3 className="font-bold mb-4">{t.recentActivity}</h3>
+            <h3 className="font-bold text-lg text-slate-900 mb-4 px-1">{t.recentActivity}</h3>
             <div className="space-y-3">
-                 <div className="bg-white p-4 rounded-xl flex justify-between items-center">
-                     <div>
-                         <div className="font-bold">Ride Payout</div>
-                         <div className="text-xs text-slate-400">Today</div>
+                 <div className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm">
+                     <div className="flex items-center gap-4">
+                         <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-600">
+                             <ArrowRight size={18} className="-rotate-45"/>
+                         </div>
+                         <div>
+                             <div className="font-bold text-slate-900">Ride Payout</div>
+                             <div className="text-xs text-slate-400 font-bold">Today, 2:30 PM</div>
+                         </div>
                      </div>
-                     <div className="font-bold text-green-600">+$45.00</div>
+                     <div className="font-bold text-green-600 text-lg">+$45.00</div>
                  </div>
             </div>
         </div>
@@ -869,16 +905,38 @@ const ProfileView = ({ user, onLogout, lang, setLang }: any) => {
     const t = translations[lang];
     return (
         <div className="p-6 pt-12 pb-32 h-full bg-slate-50">
-            <div className="flex flex-col items-center mb-8">
-                <img src={user.avatar} className="w-24 h-24 rounded-full border-4 border-white shadow-lg mb-4" />
-                <h2 className="text-2xl font-bold">{user.firstName} {user.lastName}</h2>
-                <div className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold mt-2 uppercase">{user.role}</div>
+            <div className="flex flex-col items-center mb-10">
+                <div className="relative">
+                    <img src={user.avatar} className="w-28 h-28 rounded-full border-4 border-white shadow-xl mb-4 object-cover" />
+                    {user.isVerified && <div className="absolute bottom-4 right-0 bg-blue-500 text-white p-1.5 rounded-full border-4 border-white"><CheckCircle2 size={16}/></div>}
+                </div>
+                <h2 className="text-2xl font-extrabold text-slate-900">{user.firstName} {user.lastName}</h2>
+                <div className="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full text-xs font-bold mt-2 uppercase tracking-wide">{user.role}</div>
             </div>
-            <div className="bg-white rounded-2xl p-2 shadow-sm border border-slate-100 mb-6 flex">
-                 <button onClick={() => setLang('en')} className={`w-1/2 py-3 rounded-xl font-bold text-sm transition-all ${lang === 'en' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400'}`}>English</button>
-                 <button onClick={() => setLang('fr')} className={`w-1/2 py-3 rounded-xl font-bold text-sm transition-all ${lang === 'fr' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400'}`}>Français</button>
+            
+            <div className="bg-white rounded-3xl p-2 shadow-sm border border-slate-100 mb-6 flex">
+                 <button onClick={() => setLang('en')} className={`flex-1 py-4 rounded-2xl font-bold text-sm transition-all ${lang === 'en' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>English</button>
+                 <button onClick={() => setLang('fr')} className={`flex-1 py-4 rounded-2xl font-bold text-sm transition-all ${lang === 'fr' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Français</button>
             </div>
-            <Button variant="danger" onClick={onLogout} className="w-full flex items-center justify-center gap-2"><LogOut size={18}/> {t.signOut}</Button>
+            
+            <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden mb-6">
+                 <button className="w-full p-5 flex items-center justify-between border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                     <span className="font-bold text-slate-700">Edit Profile</span>
+                     <ChevronDown className="-rotate-90 text-slate-300" size={16}/>
+                 </button>
+                 <button className="w-full p-5 flex items-center justify-between border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                     <span className="font-bold text-slate-700">Notifications</span>
+                     <ChevronDown className="-rotate-90 text-slate-300" size={16}/>
+                 </button>
+                 <button className="w-full p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                     <span className="font-bold text-slate-700">Help & Support</span>
+                     <ChevronDown className="-rotate-90 text-slate-300" size={16}/>
+                 </button>
+            </div>
+
+            <Button variant="danger" onClick={onLogout} className="w-full flex items-center justify-center gap-2 !py-4"><LogOut size={18}/> {t.signOut}</Button>
+            
+            <p className="text-center text-xs font-bold text-slate-300 mt-8">Version 1.2.0</p>
         </div>
     )
 };
@@ -886,7 +944,7 @@ const ProfileView = ({ user, onLogout, lang, setLang }: any) => {
 const AdminView = ({lang}: any) => {
     return (
         <div className="p-6 pt-12 pb-32 h-full bg-slate-50">
-            <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
+            <h1 className="text-2xl font-extrabold mb-6 text-slate-900">Admin Dashboard</h1>
             <LeaderboardChart />
         </div>
     )
