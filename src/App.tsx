@@ -180,7 +180,7 @@ const generateMockRides = (): Ride[] => {
 };
 
 const generateMockPendingDriver = (): UserType => {
-    // Using simple placeholders that are visual
+    // A placeholder image for docs
     const placeholderDoc = "https://placehold.co/600x400/e2e8f0/475569?text=Document+Preview";
     
     return {
