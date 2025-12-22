@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Navigation } from '../components/Navigation';
-import { ViewState, Ride, User as UserType, UserRole } from '../types';
-import { translations, Language } from '../utils/translations';
+import { Navigation } from './components/Navigation';
+import { ViewState, Ride, User as UserType, UserRole } from './types';
+import { translations, Language } from './utils/translations';
 import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase, TrendingUp, Check, X, Bell, HelpCircle } from 'lucide-react';
-import { LeaderboardChart } from '../components/LeaderboardChart';
-import { getStaticMapUrl, generateRideSafetyBrief } from '../services/geminiService';
-import { Logo } from '../components/Logo';
+import { LeaderboardChart } from './components/LeaderboardChart';
+import { getStaticMapUrl, generateRideSafetyBrief } from './services/geminiService';
+import { Logo } from './components/Logo';
 
 // --- Utilities ---
 const toLocalISOString = (date: Date) => {
