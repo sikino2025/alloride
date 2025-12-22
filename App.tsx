@@ -72,8 +72,9 @@ const getDisplayDate = (dateStr: string, t: any, lang: string) => {
 };
 
 // --- Data & Constants ---
-const STORAGE_KEY_RIDES = 'alloride_rides_v11'; 
-const STORAGE_KEY_USERS = 'alloride_users_v3';
+// UPDATED VERSIONS TO PREVENT CRASHES FROM STALE DATA
+const STORAGE_KEY_RIDES = 'alloride_rides_v12'; 
+const STORAGE_KEY_USERS = 'alloride_users_v4';
 
 const MOCK_USER_TEMPLATE: UserType = {
   id: 'u1', firstName: 'Alex', lastName: 'Rivera', email: 'alex@example.com', phone: '514-555-0199', role: 'passenger', avatar: 'https://i.pravatar.cc/150?u=alex', isVerified: true, driverStatus: 'approved', documentsUploaded: { license: true, insurance: true, photo: true }, rating: 4.9, totalRides: 142,
@@ -393,26 +394,38 @@ const AuthView = ({ onLogin, lang, setLang }: any) => {
           onLogin({ ...MOCK_USER_TEMPLATE, id: 'admin', role: 'admin', firstName: 'Admin', lastName: 'User' });
           return;
       }
-      const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
-      const existingUser = storedUsers.find((u: UserType) => u.email === email);
+      try {
+        const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+        const existingUser = storedUsers.find((u: UserType) => u.email === email);
 
-      if (isLogin) {
-          if (existingUser) { onLogin(existingUser); } 
-          else { alert("User not found. Please sign up first."); setIsLogin(false); }
-      } else {
-          if (existingUser) { alert("User already exists. Logging in."); onLogin(existingUser); return; }
-          const newUser: UserType = {
-              ...MOCK_USER_TEMPLATE, id: `u-${Date.now()}`, role, email, firstName, lastName, phone,
-              avatar: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random`,
-              driverStatus: role === 'driver' ? 'new' : undefined,
-              isVerified: role === 'passenger'
-          };
-          if (role === 'driver') {
-              newUser.isVerified = false;
-              newUser.documentsUploaded = { license: false, insurance: false, photo: false };
-          }
-          localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify([...storedUsers, newUser]));
-          onLogin(newUser);
+        if (isLogin) {
+            if (existingUser) { onLogin(existingUser); } 
+            else { alert("User not found. Please sign up first."); setIsLogin(false); }
+        } else {
+            if (existingUser) { alert("User already exists. Logging in."); onLogin(existingUser); return; }
+            const newUser: UserType = {
+                ...MOCK_USER_TEMPLATE, id: `u-${Date.now()}`, role, email, firstName, lastName, phone,
+                avatar: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random`,
+                driverStatus: role === 'driver' ? 'new' : undefined,
+                isVerified: role === 'passenger'
+            };
+            if (role === 'driver') {
+                newUser.isVerified = false;
+                newUser.documentsUploaded = { license: false, insurance: false, photo: false };
+            }
+            localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify([...storedUsers, newUser]));
+            onLogin(newUser);
+        }
+      } catch (err) {
+        // Fallback if storage fails
+        console.error("Auth storage error", err);
+        const newUser: UserType = {
+            ...MOCK_USER_TEMPLATE, id: `u-${Date.now()}`, role, email, firstName, lastName, phone,
+            avatar: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random`,
+            driverStatus: role === 'driver' ? 'new' : undefined,
+            isVerified: role === 'passenger'
+        };
+        onLogin(newUser);
       }
   };
 
@@ -959,17 +972,33 @@ export const App = () => {
 
   // Initialize Data
   useEffect(() => {
-    const loadedRides = localStorage.getItem(STORAGE_KEY_RIDES);
-    if (loadedRides) {
-       // parsing dates
-       const parsed = JSON.parse(loadedRides).map((r: any) => ({
-           ...r,
-           departureTime: new Date(r.departureTime),
-           arrivalTime: new Date(r.arrivalTime)
-       }));
-       setRides(parsed);
-    } else {
-       setRides(generateMockRides());
+    try {
+        const loadedRides = localStorage.getItem(STORAGE_KEY_RIDES);
+        if (loadedRides) {
+           // parsing dates
+           const parsed = JSON.parse(loadedRides).map((r: any) => ({
+               ...r,
+               departureTime: new Date(r.departureTime),
+               arrivalTime: new Date(r.arrivalTime)
+           }));
+           setRides(parsed);
+        } else {
+           setRides(generateMockRides());
+        }
+    } catch (e) {
+        console.error("Storage Error - Resetting Rides", e);
+        const mocks = generateMockRides();
+        setRides(mocks);
+        localStorage.setItem(STORAGE_KEY_RIDES, JSON.stringify(mocks));
+    }
+    
+    // Check for existing user session
+    try {
+        // We do not auto-login to allow user to see auth screen if data is stale, 
+        // but typically you would check here.
+    } catch (e) {
+        console.error("User storage error", e);
+        localStorage.removeItem(STORAGE_KEY_USERS);
     }
   }, []);
 
