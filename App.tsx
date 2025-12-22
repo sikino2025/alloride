@@ -256,72 +256,84 @@ const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvi
     };
 
     return (
-        <div className="relative flex flex-col w-full mb-4">
-            <div className="flex items-center gap-3 mb-3">
-                <div className={`w-8 h-8 rounded-full border-2 bg-white flex items-center justify-center shrink-0 ${type === 'origin' ? 'border-primary' : 'border-secondary'}`}>
-                    <div className={`w-2 h-2 rounded-full ${type === 'origin' ? 'bg-primary' : 'bg-secondary'}`}></div>
-                </div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">{label}</label>
-            </div>
+        <div className="relative flex gap-4">
+             {/* Left Column: Icon & Line */}
+             <div className="flex flex-col items-center">
+                 <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 z-10 bg-white ${type === 'origin' ? 'border-indigo-600' : 'border-pink-600'}`}>
+                     <div className={`w-3 h-3 rounded-full ${type === 'origin' ? 'bg-indigo-600' : 'bg-pink-600'}`} />
+                 </div>
+                 {type === 'origin' && <div className="w-0.5 flex-1 bg-slate-200 border-l-2 border-dashed border-slate-300 min-h-[48px] my-1"></div>}
+             </div>
 
-            <div className="flex flex-col gap-3 pl-11">
-                <div className="flex items-center gap-2">
-                    <div className="relative w-1/3 min-w-[100px] shrink-0">
-                        <select 
-                            value={province} 
-                            onChange={(e) => { setProvince(e.target.value); setCity(''); setSpot(''); }}
-                            className="w-full h-12 pl-3 pr-8 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs appearance-none outline-none focus:border-primary transition-all text-slate-700"
-                        >
-                            {Object.keys(CITIES_AND_SPOTS).map(p => (
-                                <option key={p} value={p}>{PROVINCE_NAMES[p]}</option>
-                            ))}
-                        </select>
-                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
-                    </div>
-                    
-                    <div className="relative flex-1">
-                        <input 
-                            value={city} 
-                            onChange={(e) => handleCityChange(e.target.value)}
-                            placeholder={type === 'origin' ? "City (Leaving)..." : "City (Going)..."}
-                            className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-primary transition-all text-slate-900 placeholder:text-slate-300"
-                            onFocus={() => { if(province) handleCityChange(city); }}
-                        />
-                        {showCitySuggestions && citySuggestions.length > 0 && (
-                            <div className="absolute top-full left-0 w-full bg-white shadow-2xl rounded-2xl mt-2 z-[60] max-h-56 overflow-y-auto border border-slate-100 p-2">
-                                {citySuggestions.map(s => (
-                                    <button key={s} onClick={() => handleCitySelect(s)} className="w-full text-left p-3 hover:bg-slate-50 rounded-xl text-sm font-bold text-slate-700 flex items-center gap-3 transition-colors">
-                                        <MapPin size={14} className="text-slate-300"/>
-                                        {s}
-                                    </button>
+             {/* Right Column: Inputs */}
+             <div className="flex-1 pb-4">
+                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">{label}</label>
+                 
+                 <div className="bg-white rounded-2xl border border-slate-200 p-1.5 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all shadow-sm">
+                    <div className="flex items-center divide-x divide-slate-100">
+                        {/* Province Select */}
+                        <div className="relative w-[38%] min-w-[110px] group/prov">
+                             <select
+                                value={province}
+                                onChange={(e) => { setProvince(e.target.value); setCity(''); setSpot(''); }}
+                                className="w-full h-12 bg-transparent appearance-none outline-none font-bold text-slate-700 text-xs px-3 cursor-pointer"
+                             >
+                                {Object.keys(CITIES_AND_SPOTS).map(p => (
+                                    <option key={p} value={p}>{PROVINCE_NAMES[p]}</option>
                                 ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                             </select>
+                             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
+                        </div>
 
-                {city && spotsAvailable && spotsAvailable.length > 0 && (
-                    <div className="animate-float-in">
-                        <div className={`relative flex items-center w-full rounded-2xl border-2 p-3 transition-all cursor-pointer ${spot ? 'bg-indigo-50 border-primary shadow-sm' : 'bg-white border-slate-100'}`}>
-                            <div className={`p-2 rounded-xl mr-3 ${spot ? 'bg-primary text-white' : 'bg-slate-100 text-slate-400'}`}>
-                                <NavIcon size={18} />
-                            </div>
-                            <div className="flex-1">
-                                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Meeting Point</span>
-                                <select 
-                                    value={spot}
-                                    onChange={(e) => handleSpotSelect(e.target.value)}
-                                    className="w-full bg-transparent font-bold text-sm appearance-none outline-none cursor-pointer text-slate-900"
-                                >
-                                    <option value="" disabled>Select meeting spot...</option>
-                                    {spotsAvailable.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </div>
-                            <ChevronDown size={16} className="text-slate-400" />
+                        {/* City Input */}
+                        <div className="relative flex-1">
+                            <input
+                                value={city}
+                                onChange={(e) => handleCityChange(e.target.value)}
+                                placeholder="City Name"
+                                className="w-full h-12 bg-transparent outline-none font-bold text-slate-900 text-base px-4 placeholder:font-medium placeholder:text-slate-300"
+                                onFocus={() => { if(province) handleCityChange(city); }}
+                            />
+                            {/* Suggestions */}
+                             {showCitySuggestions && citySuggestions.length > 0 && (
+                                <div className="absolute top-full left-0 w-full bg-white shadow-xl rounded-xl mt-4 z-50 max-h-60 overflow-y-auto border border-slate-100 p-2">
+                                    {citySuggestions.map(s => (
+                                        <button key={s} onClick={() => handleCitySelect(s)} className="w-full text-left p-3 hover:bg-slate-50 rounded-lg text-sm font-bold text-slate-700 flex items-center gap-2 transition-colors">
+                                            <MapPin size={16} className="text-slate-300"/>
+                                            {s}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
-                )}
-            </div>
+                 </div>
+
+                 {/* Spot Selector */}
+                 {city && spotsAvailable && spotsAvailable.length > 0 && (
+                    <div className="mt-3 animate-float-in">
+                        <div className="relative group/spot">
+                            <div className={`flex items-center bg-white border-2 rounded-xl px-4 py-3 transition-all cursor-pointer ${spot ? 'border-indigo-500 shadow-md shadow-indigo-500/10' : 'border-slate-200 hover:border-slate-300'}`}>
+                                <div className={`p-2 rounded-full mr-3 ${spot ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
+                                    <NavIcon size={18} />
+                                </div>
+                                <div className="flex-1 relative">
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Meeting Spot</label>
+                                    <select
+                                        value={spot}
+                                        onChange={(e) => handleSpotSelect(e.target.value)}
+                                        className="w-full h-6 bg-transparent appearance-none outline-none font-bold text-slate-900 text-sm cursor-pointer"
+                                    >
+                                        <option value="" disabled>Select a specific spot...</option>
+                                        {spotsAvailable.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                                <ChevronDown size={16} className="text-slate-400" />
+                            </div>
+                        </div>
+                    </div>
+                 )}
+             </div>
         </div>
     );
 };
@@ -801,14 +813,7 @@ const RideDetailView = ({ ride, user, onBook, onDelete, setView, lang }: any) =>
                      </div>
                      <div className="text-xl font-bold text-indigo-600">${ride.price}</div>
                  </div>
-                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2"><Briefcase size={16} className="text-indigo-500"/> {t.luggageAllowance}</h3>
-                    <div className="flex justify-between">
-                        <div className="text-center bg-slate-50 p-2 rounded-xl flex-1 mx-1"><div className="text-xs font-bold text-slate-400 uppercase">{t.small}</div><div className="font-bold">{ride.luggage.small}</div></div>
-                        <div className="text-center bg-slate-50 p-2 rounded-xl flex-1 mx-1"><div className="text-xs font-bold text-slate-400 uppercase">{t.medium}</div><div className="font-bold">{ride.luggage.medium}</div></div>
-                        <div className="text-center bg-slate-50 p-2 rounded-xl flex-1 mx-1"><div className="text-xs font-bold text-slate-400 uppercase">{t.large}</div><div className="font-bold">{ride.luggage.large}</div></div>
-                    </div>
-                 </div>
+                 {/* Trip Line */}
                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex gap-4">
                      <div className="flex flex-col items-center pt-2">
                          <div className="w-3 h-3 rounded-full bg-indigo-600"></div>
@@ -863,7 +868,7 @@ const WalletView = ({lang}: any) => {
 const ProfileView = ({ user, onLogout, lang, setLang }: any) => {
     const t = translations[lang];
     return (
-        <div className="p-6 pt-12 pb-32 h-full bg-slate-50 text-center overflow-y-auto no-scrollbar">
+        <div className="p-6 pt-12 pb-32 h-full bg-slate-50">
             <div className="flex flex-col items-center mb-8">
                 <img src={user.avatar} className="w-24 h-24 rounded-full border-4 border-white shadow-lg mb-4" />
                 <h2 className="text-2xl font-bold">{user.firstName} {user.lastName}</h2>
@@ -904,7 +909,7 @@ export const App = () => {
            departureTime: new Date(r.departureTime),
            arrivalTime: new Date(r.arrivalTime)
        }));
-       setRides(parsed.sort((a: Ride, b: Ride) => a.departureTime.getTime() - b.departureTime.getTime()));
+       setRides(parsed);
     } else {
        setRides(generateMockRides());
     }
@@ -919,7 +924,7 @@ export const App = () => {
   };
 
   const handlePublish = (ride: Ride) => {
-      const newRides = [...rides, ride].sort((a: Ride, b: Ride) => a.departureTime.getTime() - b.departureTime.getTime());
+      const newRides = [...rides, ride];
       setRides(newRides);
       localStorage.setItem(STORAGE_KEY_RIDES, JSON.stringify(newRides));
   };

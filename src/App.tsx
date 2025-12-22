@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Navigation } from './components/Navigation';
-import { ViewState, Ride, User as UserType, UserRole } from './types';
-import { translations, Language } from './utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert } from 'lucide-react';
-import { LeaderboardChart } from './components/LeaderboardChart';
-import { getStaticMapUrl, generateRideSafetyBrief } from './services/geminiService';
-import { Logo } from './components/Logo';
+import { Navigation } from '../components/Navigation';
+import { ViewState, Ride, User as UserType, UserRole } from '../types';
+import { translations, Language } from '../utils/translations';
+import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase } from 'lucide-react';
+import { LeaderboardChart } from '../components/LeaderboardChart';
+import { getStaticMapUrl, generateRideSafetyBrief } from '../services/geminiService';
+import { Logo } from '../components/Logo';
 
 // --- Utilities ---
 const toLocalISOString = (date: Date) => {
@@ -15,16 +15,6 @@ const toLocalISOString = (date: Date) => {
   return adjustedDate.toISOString().split('T')[0];
 };
 
-const downloadBase64 = (base64: string, filename: string) => {
-  const link = document.createElement('a');
-  link.href = base64;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-
-// Aggressive Image Compression
 const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -42,7 +32,6 @@ const compressImage = (file: File): Promise<string> => {
                 const MAX_HEIGHT = 500;
                 let width = img.width;
                 let height = img.height;
-
                 if (width > height) {
                     if (width > MAX_WIDTH) {
                         height *= MAX_WIDTH / width;
@@ -97,7 +86,6 @@ const PROVINCE_NAMES: Record<string, string> = {
     "ON": "Ontario", "PE": "Prince Edward Island", "QC": "Quebec", "SK": "Saskatchewan", "YT": "Yukon"
 };
 
-// Extended City and Spot Data for all Canadian Provinces
 const CITIES_AND_SPOTS: Record<string, Record<string, string[]>> = {
   "QC": {
     "Montreal": ["Berri-UQAM Metro", "Radisson Metro", "Trudeau Airport (YUL)", "Côte-Vertu Metro", "Namur Metro", "McGill University", "Concordia University", "Complexe Desjardins"],
@@ -152,15 +140,6 @@ const CITIES_AND_SPOTS: Record<string, Record<string, string[]>> = {
   },
   "PE": {
     "Charlottetown": ["UPEI", "Confederation Centre"]
-  },
-  "YT": {
-    "Whitehorse": ["Canada Games Centre", "Erik Nielsen Airport"]
-  },
-  "NT": {
-    "Yellowknife": ["Center Square Mall", "YZF Airport"]
-  },
-  "NU": {
-    "Iqaluit": ["Northmart", "YFB Airport"]
   }
 };
 
@@ -413,7 +392,21 @@ const RideCard = ({ ride, onClick, t, lang, isPast = false }: any) => {
   );
 };
 
-// --- Views ---
+const LuggageCounter = ({ label, value, onChange }: { label: string, value: number, onChange: (v: number) => void }) => (
+    <div className="flex items-center justify-between bg-white/50 border border-slate-100 p-3 rounded-2xl">
+        <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500"><Briefcase size={16}/></div>
+            <span className="text-sm font-bold text-slate-700">{label}</span>
+        </div>
+        <div className="flex items-center gap-3">
+            <button onClick={() => onChange(Math.max(0, value - 1))} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500">-</button>
+            <span className="font-bold text-sm min-w-[12px] text-center">{value}</span>
+            <button onClick={() => onChange(value + 1)} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500">+</button>
+        </div>
+    </div>
+);
+
+// --- Auth & Onboarding Views ---
 
 const AuthView = ({ onLogin, lang, setLang }: any) => {
   const t = translations[lang];
@@ -427,51 +420,28 @@ const AuthView = ({ onLogin, lang, setLang }: any) => {
 
   const handleAuth = (e: React.FormEvent) => {
       e.preventDefault();
-      
-      // Admin Backdoor
       if (email === 'admin@alloride.com' && password === 'admin') {
           onLogin({ ...MOCK_USER_TEMPLATE, id: 'admin', role: 'admin', firstName: 'Admin', lastName: 'User' });
           return;
       }
-      
-      // Load users from storage
       const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
       const existingUser = storedUsers.find((u: UserType) => u.email === email);
 
       if (isLogin) {
-          if (existingUser) {
-              onLogin(existingUser);
-          } else {
-              alert("User not found. Please sign up first.");
-              setIsLogin(false);
-          }
+          if (existingUser) { onLogin(existingUser); } 
+          else { alert("User not found. Please sign up first."); setIsLogin(false); }
       } else {
-          // Sign Up
-          if (existingUser) {
-              alert("User already exists. Logging in.");
-              onLogin(existingUser);
-              return;
-          }
-
+          if (existingUser) { alert("User already exists. Logging in."); onLogin(existingUser); return; }
           const newUser: UserType = {
-              ...MOCK_USER_TEMPLATE,
-              id: `u-${Date.now()}`,
-              role,
-              email,
-              firstName: firstName,
-              lastName: lastName,
-              phone: phone,
+              ...MOCK_USER_TEMPLATE, id: `u-${Date.now()}`, role, email, firstName, lastName, phone,
               avatar: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random`,
               driverStatus: role === 'driver' ? 'new' : undefined,
               isVerified: role === 'passenger'
           };
-          
           if (role === 'driver') {
               newUser.isVerified = false;
               newUser.documentsUploaded = { license: false, insurance: false, photo: false };
           }
-          
-          // Save new user
           localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify([...storedUsers, newUser]));
           onLogin(newUser);
       }
@@ -538,7 +508,7 @@ const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
         const updated = {
             ...user,
             vehicle,
-            avatar: docs.photo, // Set avatar to selfie
+            avatar: docs.photo || user.avatar,
             driverStatus: 'pending',
             documentsData: docs
         };
@@ -582,6 +552,8 @@ const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
         </div>
     );
 };
+
+// --- Main Views ---
 
 const HomeView = ({ user, allRides, bookedRides, setDetailRide, setView, lang }: any) => {
     const t = translations[lang];
@@ -653,7 +625,7 @@ const HomeView = ({ user, allRides, bookedRides, setDetailRide, setView, lang }:
 
 const PostRideView = ({ user, onPublish, setView, lang, refreshUser }: any) => {
     const t = translations[lang];
-    const [form, setForm] = useState({ price: 45, seats: 3, date: toLocalISOString(new Date()), time: '09:00' });
+    const [form, setForm] = useState({ price: 45, seats: 3, date: toLocalISOString(new Date()), time: '09:00', luggage: { small: 1, medium: 1, large: 0 } });
     
     // Origin state
     const [originProv, setOriginProv] = useState('QC');
@@ -717,7 +689,7 @@ const PostRideView = ({ user, onPublish, setView, lang, refreshUser }: any) => {
                  <Header title={t.postRide} subtitle="Build your journey" />
             </div>
             
-            <div className="flex-1 overflow-y-auto px-6 pb-32">
+            <div className="flex-1 overflow-y-auto px-6 pb-32 no-scrollbar">
                 {/* Trip Builder Card */}
                 <div className="bg-white p-6 rounded-[2.5rem] shadow-card border border-slate-100 space-y-8 relative overflow-hidden">
                     {/* Decorative Background Blur */}
@@ -766,7 +738,16 @@ const PostRideView = ({ user, onPublish, setView, lang, refreshUser }: any) => {
                      </div>
                 </div>
 
-                <div className="mt-8">
+                <div className="bg-white p-6 rounded-[2rem] shadow-card border border-slate-100 mt-6">
+                    <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><Briefcase size={18} className="text-indigo-500"/> {t.luggageCapacity}</h3>
+                    <div className="space-y-3">
+                        <LuggageCounter label={t.small} value={form.luggage.small} onChange={(v) => setForm({...form, luggage: {...form.luggage, small: v}})} />
+                        <LuggageCounter label={t.medium} value={form.luggage.medium} onChange={(v) => setForm({...form, luggage: {...form.luggage, medium: v}})} />
+                        <LuggageCounter label={t.large} value={form.luggage.large} onChange={(v) => setForm({...form, luggage: {...form.luggage, large: v}})} />
+                    </div>
+                </div>
+
+                <div className="mt-8 mb-8">
                      <Button onClick={handleSubmit} className="shadow-xl shadow-indigo-200">
                         {t.publishRide}
                         <ArrowRight size={18} />
@@ -785,7 +766,7 @@ const SearchView = ({ allRides, setDetailRide, setView, lang }: any) => {
         r.origin.toLowerCase().includes(search.toLowerCase())
     );
     return (
-        <div className="h-full bg-slate-50 p-6 pt-12 pb-32 overflow-y-auto">
+        <div className="h-full bg-slate-50 p-6 pt-12 pb-32 overflow-y-auto no-scrollbar">
             <h1 className="text-2xl font-bold mb-4">{t.searchRides}</h1>
             <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-2 mb-6">
                 <Search className="text-slate-400" />
@@ -807,7 +788,7 @@ const RideDetailView = ({ ride, user, onBook, onDelete, setView, lang }: any) =>
     }, [ride]);
 
     return (
-        <div className="h-full bg-slate-50 flex flex-col overflow-y-auto pb-32">
+        <div className="h-full bg-slate-50 flex flex-col overflow-y-auto pb-32 no-scrollbar">
              <div className="relative h-64 shrink-0">
                  <img src={getStaticMapUrl(ride.destination)} className="w-full h-full object-cover" />
                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
