@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Navigation } from './components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from './types';
 import { translations, Language } from './utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase, TrendingUp, Check, X, Bell, HelpCircle, Ticket, Lock } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase, TrendingUp, Check, X, Bell, HelpCircle, Ticket, Lock, AlertTriangle } from 'lucide-react';
 import { LeaderboardChart } from './components/LeaderboardChart';
 import { getStaticMapUrl, generateRideSafetyBrief } from './services/geminiService';
 import { Logo } from './components/Logo';
@@ -72,8 +72,8 @@ const getDisplayDate = (dateStr: string, t: any, lang: string) => {
 };
 
 // --- Data & Constants ---
-const STORAGE_KEY_RIDES = 'alloride_rides_v10'; 
-const STORAGE_KEY_USERS = 'alloride_users_v2';
+const STORAGE_KEY_RIDES = 'alloride_rides_v11'; 
+const STORAGE_KEY_USERS = 'alloride_users_v3';
 
 const MOCK_USER_TEMPLATE: UserType = {
   id: 'u1', firstName: 'Alex', lastName: 'Rivera', email: 'alex@example.com', phone: '514-555-0199', role: 'passenger', avatar: 'https://i.pravatar.cc/150?u=alex', isVerified: true, driverStatus: 'approved', documentsUploaded: { license: true, insurance: true, photo: true }, rating: 4.9, totalRides: 142,
@@ -180,34 +180,25 @@ const generateMockRides = (): Ride[] => {
 };
 
 const generateMockPendingDriver = (): UserType => {
-    // A placeholder image for docs
-    const placeholderDoc = "https://placehold.co/600x400/e2e8f0/475569?text=Document+Preview";
-    
     return {
-        id: 'mock-pending-driver-1',
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-        phone: '514-555-0199',
+        id: 'mock-pending-1',
+        firstName: 'Pending',
+        lastName: 'Driver',
+        email: 'pending@example.com',
+        phone: '514-555-9999',
         role: 'driver',
         driverStatus: 'pending',
         isVerified: false,
-        avatar: 'https://i.pravatar.cc/150?u=john',
+        avatar: 'https://i.pravatar.cc/150?u=pending',
         documentsUploaded: { license: true, insurance: true, photo: true },
         documentsData: {
-            license: placeholderDoc,
-            insurance: placeholderDoc,
-            photo: 'https://i.pravatar.cc/150?u=john' // Selfie
+            license: 'https://placehold.co/600x400/e2e8f0/475569?text=License+Preview',
+            insurance: 'https://placehold.co/600x400/e2e8f0/475569?text=Insurance+Preview',
+            photo: 'https://i.pravatar.cc/150?u=pending'
         },
         rating: 0,
         totalRides: 0,
-        vehicle: {
-            make: 'Honda',
-            model: 'Civic',
-            year: '2022',
-            color: 'Silver',
-            plate: 'H32 KP9'
-        }
+        vehicle: { make: 'Honda', model: 'Civic', year: '2022', color: 'Silver', plate: 'H32 KP9' }
     };
 };
 
@@ -267,7 +258,6 @@ const LocationInput = ({ label, city, setCity, spot, setSpot, province, setProvi
 
     return (
         <div className="flex gap-4">
-             {/* Timeline Visual */}
              <div className="flex flex-col items-center pt-2">
                  <div className={`w-3 h-3 rounded-full ${type === 'origin' ? 'bg-indigo-600 ring-4 ring-indigo-50' : 'bg-pink-600 ring-4 ring-pink-50'}`} />
                  {type === 'origin' && <div className="w-0.5 flex-1 bg-slate-200 min-h-[50px] my-1 rounded-full"></div>}
@@ -343,7 +333,6 @@ const RideCard = ({ ride, onClick, t, lang, isPast = false }: any) => {
 
   return (
     <div onClick={onClick} className={`bg-white rounded-2xl p-0 shadow-sm hover:shadow-md mb-4 active:scale-[0.99] transition-all cursor-pointer border border-slate-100 overflow-hidden ${isPast ? 'opacity-75 grayscale-[0.3]' : ''}`}>
-      {/* Top Banner for Date/Status */}
       <div className="bg-slate-50 px-5 py-3 border-b border-slate-100 flex justify-between items-center">
          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{rideDate}</span>
          <div className="flex gap-2">
@@ -354,24 +343,20 @@ const RideCard = ({ ride, onClick, t, lang, isPast = false }: any) => {
       </div>
 
       <div className="p-5 flex items-stretch">
-          {/* Times and Line */}
           <div className="flex flex-col justify-between items-center mr-4 py-1">
               <div className="text-sm font-bold text-slate-900">{startTime}</div>
               <div className="w-0.5 flex-1 bg-slate-100 my-1 relative">
-                 {/* Decor dots */}
                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-slate-300"></div>
                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-slate-300"></div>
               </div>
               <div className="text-sm font-bold text-slate-400">{endTime}</div>
           </div>
 
-          {/* Locations */}
           <div className="flex-1 flex flex-col justify-between py-1 space-y-4">
               <div className="text-base font-bold text-slate-800 leading-tight">{ride.origin}</div>
               <div className="text-base font-bold text-slate-800 leading-tight">{ride.destination}</div>
           </div>
 
-          {/* Price */}
           <div className="flex flex-col justify-between items-end pl-4 border-l border-slate-50">
               <div className="text-xl font-extrabold text-indigo-600">${ride.price}</div>
               <div className="flex flex-col items-end">
@@ -385,7 +370,6 @@ const RideCard = ({ ride, onClick, t, lang, isPast = false }: any) => {
           </div>
       </div>
       
-      {/* Footer Info */}
       <div className="px-5 py-3 border-t border-slate-50 flex items-center justify-between bg-white">
           <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
              <span className={`flex items-center gap-1 ${isFull ? 'text-red-500 font-bold' : ''}`}><Users size={12}/> {ride.seatsAvailable} seats left</span>
@@ -411,7 +395,7 @@ const LuggageCounter = ({ label, value, onChange }: { label: string, value: numb
     </div>
 );
 
-// --- Auth & Onboarding Views ---
+// --- Auth & Onboarding ---
 
 const AuthView = ({ onLogin, lang, setLang }: any) => {
   const t = translations[lang];
@@ -425,10 +409,6 @@ const AuthView = ({ onLogin, lang, setLang }: any) => {
 
   const handleAuth = (e: React.FormEvent) => {
       e.preventDefault();
-      if (email === 'admin@alloride.com' && password === 'admin') {
-          onLogin({ ...MOCK_USER_TEMPLATE, id: 'admin', role: 'admin', firstName: 'Admin', lastName: 'User' });
-          return;
-      }
       try {
         const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
         const existingUser = storedUsers.find((u: UserType) => u.email === email);
@@ -452,15 +432,7 @@ const AuthView = ({ onLogin, lang, setLang }: any) => {
             onLogin(newUser);
         }
       } catch (err) {
-        // Fallback if storage fails
         console.error("Auth storage error", err);
-        const newUser: UserType = {
-            ...MOCK_USER_TEMPLATE, id: `u-${Date.now()}`, role, email, firstName, lastName, phone,
-            avatar: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random`,
-            driverStatus: role === 'driver' ? 'new' : undefined,
-            isVerified: role === 'passenger'
-        };
-        onLogin(newUser);
       }
   };
 
@@ -522,20 +494,11 @@ const DriverOnboarding = ({ user, updateUser, onComplete, lang }: any) => {
     };
 
     const finish = () => {
-        const updated = {
-            ...user,
-            vehicle,
-            avatar: docs.photo || user.avatar,
-            driverStatus: 'pending',
-            documentsData: docs
-        };
+        const updated = { ...user, vehicle, avatar: docs.photo || user.avatar, driverStatus: 'pending', documentsData: docs };
         updateUser(updated);
-        
-        // Update user in storage
         const users = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
         const updatedUsers = users.map((u: UserType) => u.id === user.id ? updated : u);
         localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
-        
         onComplete();
     };
 
@@ -1125,15 +1088,15 @@ const ProfileView = ({ user, onLogout, lang, setLang, switchToAdmin }: any) => {
                  </button>
             </div>
 
-            {/* ADMIN ACCESS BUTTON */}
+            {/* ADMIN ACCESS BUTTON - EXTREMELY VISIBLE */}
             <div className="mb-6">
                 <button 
                     onClick={switchToAdmin}
-                    className="w-full bg-slate-900 text-white p-4 rounded-2xl font-bold flex items-center justify-between shadow-lg shadow-slate-900/20 active:scale-95 transition-all"
+                    className="w-full bg-red-600 text-white p-4 rounded-2xl font-bold flex items-center justify-between shadow-lg shadow-red-900/20 active:scale-95 transition-all"
                 >
                     <div className="flex items-center gap-3">
                         <Lock size={20} />
-                        <span>Admin Dashboard Access</span>
+                        <span>Admin Access (Developers)</span>
                     </div>
                     <ArrowRight size={20} />
                 </button>
@@ -1148,7 +1111,7 @@ const ProfileView = ({ user, onLogout, lang, setLang, switchToAdmin }: any) => {
 
 const AdminView = ({ lang, allUsers, rides, onVerifyDriver, refreshData }: any) => {
     const t = translations[lang];
-    const [activeTab, setActiveTab] = useState<'overview' | 'drivers' | 'routes'>('drivers'); // Default to drivers to fix user issue faster
+    const [activeTab, setActiveTab] = useState<'drivers' | 'routes' | 'earnings'>('drivers'); // Default to drivers to fix user issue faster
     
     // Derived state
     const pendingDrivers = useMemo(() => allUsers.filter((u: UserType) => u.driverStatus === 'pending'), [allUsers]);
@@ -1168,14 +1131,14 @@ const AdminView = ({ lang, allUsers, rides, onVerifyDriver, refreshData }: any) 
             
             {/* Tabs */}
             <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm mb-6">
-                <button onClick={() => setActiveTab('overview')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'overview' ? 'bg-slate-900 text-white shadow' : 'text-slate-500'}`}>Overview</button>
                 <button onClick={() => setActiveTab('drivers')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'drivers' ? 'bg-slate-900 text-white shadow' : 'text-slate-500'}`}>
                     Drivers {pendingDrivers.length > 0 && <span className="bg-red-500 text-white px-1.5 py-0.5 rounded-full text-[10px] ml-1">{pendingDrivers.length}</span>}
                 </button>
                 <button onClick={() => setActiveTab('routes')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'routes' ? 'bg-slate-900 text-white shadow' : 'text-slate-500'}`}>Routes</button>
+                <button onClick={() => setActiveTab('earnings')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'earnings' ? 'bg-slate-900 text-white shadow' : 'text-slate-500'}`}>Earnings</button>
             </div>
 
-            {activeTab === 'overview' && (
+            {activeTab === 'earnings' && (
                 <div className="space-y-6 animate-float-in">
                     <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-xl shadow-slate-900/20 relative overflow-hidden">
                         <div className="relative z-10">
@@ -1478,7 +1441,13 @@ export const App = () => {
 
   // Helper to switch role for demo/admin purposes
   const handleSwitchToAdmin = () => {
-      setView('admin');
+      const password = prompt("Enter Admin Password:");
+      if (password === '1977') {
+          setView('admin');
+          loadUsers();
+      } else if (password !== null) {
+          alert("Incorrect password. Access denied.");
+      }
   };
 
   if (!user) {
