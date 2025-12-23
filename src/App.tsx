@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Navigation } from './components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from './types';
 import { translations, Language } from './utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase, TrendingUp, Check, X, Bell, HelpCircle, Ticket } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase, TrendingUp, Check, X, Bell, HelpCircle, Ticket, Lock } from 'lucide-react';
 import { LeaderboardChart } from './components/LeaderboardChart';
 import { getStaticMapUrl, generateRideSafetyBrief } from './services/geminiService';
 import { Logo } from './components/Logo';
@@ -1013,7 +1013,7 @@ const WalletView = ({lang}: any) => {
     )
 };
 
-const ProfileView = ({ user, onLogout, lang, setLang }: any) => {
+const ProfileView = ({ user, onLogout, lang, setLang, switchToAdmin }: any) => {
     const t = translations[lang];
     const [activeTab, setActiveTab] = useState<'menu' | 'edit' | 'notifications' | 'help'>('menu');
 
@@ -1125,6 +1125,20 @@ const ProfileView = ({ user, onLogout, lang, setLang }: any) => {
                  </button>
             </div>
 
+            {/* ADMIN ACCESS BUTTON */}
+            <div className="mb-6">
+                <button 
+                    onClick={switchToAdmin}
+                    className="w-full bg-slate-900 text-white p-4 rounded-2xl font-bold flex items-center justify-between shadow-lg shadow-slate-900/20 active:scale-95 transition-all"
+                >
+                    <div className="flex items-center gap-3">
+                        <Lock size={20} />
+                        <span>Admin Dashboard Access</span>
+                    </div>
+                    <ArrowRight size={20} />
+                </button>
+            </div>
+
             <Button variant="danger" onClick={onLogout} className="w-full flex items-center justify-center gap-2 !py-4"><LogOut size={18}/> {t.signOut}</Button>
             
             <p className="text-center text-xs font-bold text-slate-300 mt-8">Version 1.2.0</p>
@@ -1134,7 +1148,7 @@ const ProfileView = ({ user, onLogout, lang, setLang }: any) => {
 
 const AdminView = ({ lang, allUsers, rides, onVerifyDriver, refreshData }: any) => {
     const t = translations[lang];
-    const [activeTab, setActiveTab] = useState<'overview' | 'drivers' | 'routes'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'drivers' | 'routes'>('drivers'); // Default to drivers to fix user issue faster
     
     // Derived state
     const pendingDrivers = useMemo(() => allUsers.filter((u: UserType) => u.driverStatus === 'pending'), [allUsers]);
@@ -1446,6 +1460,12 @@ export const App = () => {
       });
       setAllUsers(updatedUsers as UserType[]);
       localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
+      
+      // Update local user state immediately if it matches
+      if (user && user.id === userId) {
+          setUser({ ...user, driverStatus: isApproved ? 'approved' : 'rejected', isVerified: isApproved });
+      }
+      
       alert(`Driver ${isApproved ? 'Approved' : 'Rejected'}`);
   };
 
@@ -1454,6 +1474,11 @@ export const App = () => {
       const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
       const updatedSelf = storedUsers.find((u:UserType) => u.id === user.id);
       if(updatedSelf) setUser(updatedSelf);
+  };
+
+  // Helper to switch role for demo/admin purposes
+  const handleSwitchToAdmin = () => {
+      setView('admin');
   };
 
   if (!user) {
@@ -1472,7 +1497,7 @@ export const App = () => {
                 {view === 'search' && <SearchView allRides={rides} setDetailRide={setDetailRide} setView={setView} lang={lang} />}
                 {view === 'post' && <PostRideView user={user} onPublish={handlePublish} setView={setView} lang={lang} refreshUser={handleRefreshUser} />}
                 {view === 'wallet' && <WalletView lang={lang} />}
-                {view === 'profile' && <ProfileView user={user} onLogout={() => setUser(null)} lang={lang} setLang={setLang} />}
+                {view === 'profile' && <ProfileView user={user} onLogout={() => setUser(null)} lang={lang} setLang={setLang} switchToAdmin={handleSwitchToAdmin} />}
                 {view === 'ride-detail' && <RideDetailView ride={detailRide} user={user} onBook={handleBook} onDelete={handleDeleteRide} setView={setView} lang={lang} />}
                 {view === 'admin' && <AdminView lang={lang} allUsers={allUsers} rides={rides} onVerifyDriver={handleVerifyDriver} refreshData={loadUsers} />}
                 
