@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Navigation } from './components/Navigation';
 import { ViewState, Ride, User as UserType, UserRole } from './types';
 import { translations, Language } from './utils/translations';
-import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase, TrendingUp, Check, X, Bell, HelpCircle } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, User, Search, Star, CheckCircle2, Zap, Upload, FileText, Car, Clock, Shield, XCircle, Camera, Phone, MessageSquare, Plus, Trash2, AlertCircle, LogOut, Download, MoreHorizontal, ChevronLeft, RefreshCw, ChevronDown, Map, Navigation as NavIcon, DollarSign, Users, ShieldAlert, Briefcase, TrendingUp, Check, X, Bell, HelpCircle, Ticket } from 'lucide-react';
 import { LeaderboardChart } from './components/LeaderboardChart';
 import { getStaticMapUrl, generateRideSafetyBrief } from './services/geminiService';
 import { Logo } from './components/Logo';
@@ -339,14 +339,18 @@ const RideCard = ({ ride, onClick, t, lang, isPast = false }: any) => {
   const endTime = ride.arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const rideDate = ride.departureTime.toLocaleDateString(lang === 'fr' ? 'fr-CA' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const isBooked = ride.bookedSeats && ride.bookedSeats > 0;
+  const isFull = ride.seatsAvailable === 0;
 
   return (
     <div onClick={onClick} className={`bg-white rounded-2xl p-0 shadow-sm hover:shadow-md mb-4 active:scale-[0.99] transition-all cursor-pointer border border-slate-100 overflow-hidden ${isPast ? 'opacity-75 grayscale-[0.3]' : ''}`}>
       {/* Top Banner for Date/Status */}
       <div className="bg-slate-50 px-5 py-3 border-b border-slate-100 flex justify-between items-center">
          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{rideDate}</span>
-         {isBooked && !isPast && <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Booked</span>}
-         {isPast && <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Completed</span>}
+         <div className="flex gap-2">
+            {isBooked && !isPast && <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Booked</span>}
+            {isFull && !isPast && !isBooked && <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Full</span>}
+            {isPast && <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Completed</span>}
+         </div>
       </div>
 
       <div className="p-5 flex items-stretch">
@@ -384,7 +388,7 @@ const RideCard = ({ ride, onClick, t, lang, isPast = false }: any) => {
       {/* Footer Info */}
       <div className="px-5 py-3 border-t border-slate-50 flex items-center justify-between bg-white">
           <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
-             <span className="flex items-center gap-1"><Users size={12}/> {ride.seatsAvailable} seats left</span>
+             <span className={`flex items-center gap-1 ${isFull ? 'text-red-500 font-bold' : ''}`}><Users size={12}/> {ride.seatsAvailable} seats left</span>
              {ride.features.instantBook && <span className="flex items-center gap-1 text-green-600"><Zap size={12}/> Instant</span>}
           </div>
           <div className="text-xs font-bold text-slate-900 flex items-center gap-1">
@@ -796,29 +800,90 @@ const PostRideView = ({ user, onPublish, setView, lang, refreshUser }: any) => {
 
 const SearchView = ({ allRides, setDetailRide, setView, lang }: any) => {
     const t = translations[lang];
-    const [search, setSearch] = useState('');
-    const filtered = allRides.filter((r: Ride) => 
-        r.destination.toLowerCase().includes(search.toLowerCase()) || 
-        r.origin.toLowerCase().includes(search.toLowerCase())
-    );
+    const [fromQuery, setFromQuery] = useState('');
+    const [toQuery, setToQuery] = useState('');
+    const [dateQuery, setDateQuery] = useState('');
+    
+    // Default to a future search if no date selected, otherwise filter by date
+    const filtered = allRides.filter((r: Ride) => {
+        const matchFrom = !fromQuery || r.origin.toLowerCase().includes(fromQuery.toLowerCase());
+        const matchTo = !toQuery || r.destination.toLowerCase().includes(toQuery.toLowerCase());
+        
+        let matchDate = true;
+        if (dateQuery) {
+            const rDate = toLocalISOString(r.departureTime);
+            matchDate = rDate === dateQuery;
+        } else {
+            // If no date, only show future rides
+            matchDate = r.departureTime.getTime() > Date.now();
+        }
+        
+        return matchFrom && matchTo && matchDate && r.seatsAvailable > 0;
+    });
+
     return (
         <div className="h-full bg-slate-50 p-6 pt-12 pb-32 overflow-y-auto no-scrollbar">
             <h1 className="text-2xl font-extrabold mb-6 text-slate-900">{t.searchRides}</h1>
-            <div className="bg-white p-2 rounded-2xl border border-slate-200 flex items-center gap-3 mb-8 shadow-sm focus-within:shadow-md focus-within:border-indigo-500 transition-all">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
-                    <Search size={20} />
+            
+            <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 mb-8 space-y-4">
+                {/* Inputs */}
+                <div className="space-y-4">
+                    <div className="bg-slate-50 p-3 rounded-2xl flex items-center gap-3 border border-transparent focus-within:bg-white focus-within:border-indigo-500 transition-all">
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                            <div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
+                        </div>
+                        <input 
+                            value={fromQuery}
+                            onChange={(e) => setFromQuery(e.target.value)}
+                            placeholder="Leaving from..." 
+                            className="bg-transparent outline-none font-bold text-slate-900 w-full text-sm placeholder:text-slate-400"
+                        />
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-2xl flex items-center gap-3 border border-transparent focus-within:bg-white focus-within:border-indigo-500 transition-all">
+                        <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 shrink-0">
+                            <MapPin size={14} className="fill-pink-600"/>
+                        </div>
+                        <input 
+                            value={toQuery}
+                            onChange={(e) => setToQuery(e.target.value)}
+                            placeholder="Going to..." 
+                            className="bg-transparent outline-none font-bold text-slate-900 w-full text-sm placeholder:text-slate-400"
+                        />
+                    </div>
                 </div>
-                <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Where do you want to go?" className="flex-1 outline-none font-bold text-slate-900 text-lg placeholder:text-slate-300 h-12" />
+                
+                <div className="flex gap-3">
+                    <div className="flex-1 bg-slate-50 p-3 rounded-2xl flex items-center gap-2 border border-transparent focus-within:bg-white focus-within:border-indigo-500 transition-all cursor-pointer relative">
+                        <Calendar size={16} className="text-slate-400 ml-1"/>
+                        <input 
+                            type="date"
+                            value={dateQuery}
+                            onChange={(e) => setDateQuery(e.target.value)}
+                            className="bg-transparent outline-none font-bold text-slate-900 w-full text-xs cursor-pointer z-10"
+                        />
+                    </div>
+                    <button className="bg-slate-900 text-white w-14 rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-all">
+                        <Search size={20} />
+                    </button>
+                </div>
             </div>
             
+            <div className="flex items-center justify-between mb-4 px-2">
+                <h3 className="font-bold text-slate-900">{filtered.length} rides found</h3>
+                {dateQuery && <button onClick={() => setDateQuery('')} className="text-xs font-bold text-indigo-600">Clear Date</button>}
+            </div>
+
             <div className="space-y-4">
                 {filtered.map((r: Ride) => (
                     <RideCard key={r.id} ride={r} t={t} lang={lang} onClick={() => { setDetailRide(r); setView('ride-detail'); }} />
                 ))}
                 {filtered.length === 0 && (
-                    <div className="text-center py-20 opacity-50">
-                        <Map size={48} className="mx-auto mb-4 text-slate-300"/>
-                        <p className="font-bold text-slate-400">No rides found matching "{search}"</p>
+                    <div className="text-center py-12 opacity-60">
+                        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                            <Search size={32}/>
+                        </div>
+                        <p className="font-bold text-slate-500">No rides found</p>
+                        <p className="text-xs text-slate-400 mt-1 max-w-[200px] mx-auto">Try changing your dates or removing location filters.</p>
                     </div>
                 )}
             </div>
@@ -1310,6 +1375,7 @@ export const App = () => {
   const [rides, setRides] = useState<Ride[]>([]);
   const [detailRide, setDetailRide] = useState<Ride | null>(null);
   const [allUsers, setAllUsers] = useState<UserType[]>([]);
+  const [bookingSuccess, setBookingSuccess] = useState(false);
 
   // Function to load users from storage, ensuring fresh data
   const loadUsers = () => {
@@ -1319,9 +1385,6 @@ export const App = () => {
       const hasPending = storedUsers.some((u:UserType) => u.driverStatus === 'pending');
       if (!hasPending) {
           const mockPending = generateMockPendingDriver();
-          // We don't save this to localStorage permanently to avoid clutter, just in memory for the session
-          // UNLESS the user list is completely empty, then we might save it.
-          // For this demo, we merge it into state.
           const updatedUsers = [...storedUsers, mockPending];
           setAllUsers(updatedUsers);
       } else {
@@ -1350,7 +1413,6 @@ export const App = () => {
   const handleLogin = (u: UserType) => {
       setUser(u);
       setView('home');
-      // REFRESH USERS ON LOGIN to ensure we see new signups
       loadUsers();
   };
 
@@ -1361,8 +1423,11 @@ export const App = () => {
   };
   
   const handleBook = (ride: Ride) => {
-      alert("Booking confirmed! (Simulation)");
-      setView('home');
+      setBookingSuccess(true);
+      setTimeout(() => {
+          setBookingSuccess(false);
+          setView('home');
+      }, 3000);
   };
 
   const handleDeleteRide = (id: string) => {
@@ -1380,8 +1445,6 @@ export const App = () => {
           return u;
       });
       setAllUsers(updatedUsers as UserType[]);
-      // Save back to storage specifically stripping out the mock if we don't want to persist it,
-      // but simpler to just save all for this demo.
       localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
       alert(`Driver ${isApproved ? 'Approved' : 'Rejected'}`);
   };
@@ -1412,6 +1475,17 @@ export const App = () => {
                 {view === 'profile' && <ProfileView user={user} onLogout={() => setUser(null)} lang={lang} setLang={setLang} />}
                 {view === 'ride-detail' && <RideDetailView ride={detailRide} user={user} onBook={handleBook} onDelete={handleDeleteRide} setView={setView} lang={lang} />}
                 {view === 'admin' && <AdminView lang={lang} allUsers={allUsers} rides={rides} onVerifyDriver={handleVerifyDriver} refreshData={loadUsers} />}
+                
+                {/* Booking Success Overlay */}
+                {bookingSuccess && (
+                    <div className="absolute inset-0 z-50 bg-indigo-600 flex flex-col items-center justify-center text-white animate-fade-in">
+                        <div className="bg-white/20 p-6 rounded-full mb-6 animate-bounce">
+                            <Ticket size={48} className="text-white"/>
+                        </div>
+                        <h2 className="text-3xl font-extrabold mb-2">You're Booked!</h2>
+                        <p className="text-white/80 font-medium">Pack your bags, you're going places.</p>
+                    </div>
+                )}
             </div>
             <Navigation currentView={view} setView={setView} lang={lang} userRole={user.role} />
         </div>
