@@ -1067,7 +1067,7 @@ const ProfileView = ({ user, onLogout, lang, setLang }: any) => {
     )
 };
 
-const AdminView = ({ lang, allUsers, rides, onVerifyDriver }: any) => {
+const AdminView = ({ lang, allUsers, rides, onVerifyDriver, refreshData }: any) => {
     const t = translations[lang];
     const [activeTab, setActiveTab] = useState<'overview' | 'drivers' | 'routes'>('overview');
     
@@ -1080,7 +1080,12 @@ const AdminView = ({ lang, allUsers, rides, onVerifyDriver }: any) => {
 
     return (
         <div className="p-6 pt-12 pb-32 h-full bg-slate-50 overflow-y-auto no-scrollbar">
-            <h1 className="text-2xl font-extrabold mb-6 text-slate-900">{t.adminDashboard}</h1>
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl font-extrabold text-slate-900">{t.adminDashboard}</h1>
+                <button onClick={refreshData} className="p-2 bg-white border border-slate-200 rounded-full shadow-sm text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-colors">
+                    <RefreshCw size={20}/>
+                </button>
+            </div>
             
             {/* Tabs */}
             <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm mb-6">
@@ -1306,6 +1311,24 @@ export const App = () => {
   const [detailRide, setDetailRide] = useState<Ride | null>(null);
   const [allUsers, setAllUsers] = useState<UserType[]>([]);
 
+  // Function to load users from storage, ensuring fresh data
+  const loadUsers = () => {
+      const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+      
+      // MOCK INJECTION: Check if we need to inject a pending driver
+      const hasPending = storedUsers.some((u:UserType) => u.driverStatus === 'pending');
+      if (!hasPending) {
+          const mockPending = generateMockPendingDriver();
+          // We don't save this to localStorage permanently to avoid clutter, just in memory for the session
+          // UNLESS the user list is completely empty, then we might save it.
+          // For this demo, we merge it into state.
+          const updatedUsers = [...storedUsers, mockPending];
+          setAllUsers(updatedUsers);
+      } else {
+          setAllUsers(storedUsers);
+      }
+  };
+
   // Initialize Data
   useEffect(() => {
     // Load Rides
@@ -1321,36 +1344,14 @@ export const App = () => {
        setRides(generateMockRides());
     }
     
-    // Load Users for Admin
-    const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
-    
-    // MOCK INJECTION: Ensure there is at least one pending driver for demonstration if list is empty or doesn't have one.
-    const hasPending = storedUsers.some((u:UserType) => u.driverStatus === 'pending');
-    if (!hasPending) {
-        const mockPending = generateMockPendingDriver();
-        const updatedUsers = [...storedUsers, mockPending];
-        setAllUsers(updatedUsers);
-        // Do not overwrite local storage with mock data permanently if you don't want to, 
-        // but for a persistent demo experience, we can.
-        // localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
-    } else {
-        setAllUsers(storedUsers);
-    }
+    loadUsers();
   }, []);
 
   const handleLogin = (u: UserType) => {
       setUser(u);
       setView('home');
-      // Refresh user list in case a new user signed up
-      const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
-      
-      // Ensure mock pending driver exists in memory for admin view even after login
-      const hasPending = storedUsers.some((u:UserType) => u.driverStatus === 'pending');
-      if (!hasPending) {
-          setAllUsers([...storedUsers, generateMockPendingDriver()]);
-      } else {
-          setAllUsers(storedUsers);
-      }
+      // REFRESH USERS ON LOGIN to ensure we see new signups
+      loadUsers();
   };
 
   const handlePublish = (ride: Ride) => {
@@ -1379,6 +1380,8 @@ export const App = () => {
           return u;
       });
       setAllUsers(updatedUsers as UserType[]);
+      // Save back to storage specifically stripping out the mock if we don't want to persist it,
+      // but simpler to just save all for this demo.
       localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
       alert(`Driver ${isApproved ? 'Approved' : 'Rejected'}`);
   };
@@ -1408,7 +1411,7 @@ export const App = () => {
                 {view === 'wallet' && <WalletView lang={lang} />}
                 {view === 'profile' && <ProfileView user={user} onLogout={() => setUser(null)} lang={lang} setLang={setLang} />}
                 {view === 'ride-detail' && <RideDetailView ride={detailRide} user={user} onBook={handleBook} onDelete={handleDeleteRide} setView={setView} lang={lang} />}
-                {view === 'admin' && <AdminView lang={lang} allUsers={allUsers} rides={rides} onVerifyDriver={handleVerifyDriver} />}
+                {view === 'admin' && <AdminView lang={lang} allUsers={allUsers} rides={rides} onVerifyDriver={handleVerifyDriver} refreshData={loadUsers} />}
             </div>
             <Navigation currentView={view} setView={setView} lang={lang} userRole={user.role} />
         </div>
